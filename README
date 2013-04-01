@@ -1,0 +1,1 @@
+The purpose of this project is to develop a way to download public docket sheets from AOPC, by sequentially requesting each docket in each county in a given year.  Once downloaded, we can process the data in them to come up with our own repository to do research on the data.
