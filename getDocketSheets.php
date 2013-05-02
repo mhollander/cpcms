@@ -90,7 +90,7 @@ function getDocketSheets($start, $end, $prefix, $county, $court, $year, $basedir
 }
 
 // get all CP dockets in the state except for philly
-foreach (range("52", "67") as $num)
+foreach (range("41", "45") as $num)
 {
 
 	if ($num=="51")
