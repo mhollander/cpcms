@@ -95,7 +95,42 @@ class Docket
 	protected static $nameSearch = "/^Defendant\s+(.*), (.*)/";
 
 	// ($1 = charge, $2 = disposition, $3 = grade, $4 = code section
-	protected static $chargesSearch = "/\d\s+\/\s+(.*[^Not])\s+(Not Guilty|Guilty|Nolle Prossed|Nolle Prossed \(Case Dismissed\)|Nolle Prosequi - Administrative|Guilty Plea|Guilty Plea - Negotiated|Guilty Plea - Non-Negotiated|Withdrawn|Withdrawn - Administrative|Charge Changed|Held for Court|Community Court Program|Dismissed - Rule 1013 \(Speedy|Dismissed - Rule 600 \(Speedy|Dismissed - LOP|Dismissed - LOE|Dismissed - Rule 546|Dismissed|Demurrer Sustained|ARD - County Open|ARD - County|ARD|Transferred to Another Jurisdiction|Transferred to Juvenile Division|Quashed|Summary Diversion Completed|Judgment of Acquittal \(Prior to)\s+(\w{0,2})\s+(\w{1,2}\s?\247\s?\d+(\-|\247|\w+)*)/"; // removed "Replacement by Information"
+	// explanation: .+? - the "?" means to do a lazy match of .+, so it isn't greedy; I have it twice, the first time
+	// is to match the charge, the second is to match the disposition.  The final part is to match the code section that is violated.
+	protected static $chargesSearch = "/\d\s+\/\s+(.+?)(?=\s\s)\s{2,}(.+?)(?=\s\s)\s{2,}(\w{0,2})\s+(\w{1,2}\s?\247\s?\d+(\-|\247|\w+)*)/";
+	
+	// regexes to get information about the attorneys
+	protected static $attorneyInfoHeaderSearch = "/\s*COMMONWEALTH INFORMATION\s+ATTORNEY INFORMATION/";
+	protected static $attorneyInfoSearch = "/Name:\s+(.+)\s+Name:\s+(.+)\s*/";
+	// the idea in this next search is that we have two columns: one for the P and one for the D; they are separated by a lot of 
+	// whitespace.  We want to grab both pieces of info and store it somewhere.  Here are variations on what we might see:
+/*
+ COMMONWEALTH INFORMATION                                                      ATTORNEY INFORMATION 
+
+   Name:             Adams County District Attorney's                            Name:              Jeffery M. Cook * 
+                     Office, Esq.                                                                   Public Defender 
+                     Prosecutor                                                  Supreme Court No:            025449 
+
+   Supreme Court No:                                                             Rep. Status:                 Lower Court 
+   
+   OR 
+   
+    COMMONWEALTH INFORMATION                                                     ATTORNEY INFORMATION 
+
+   Name:             Brian Ray Sinnett                                          Name:               Matthew Raymond Gover, Esq. * 
+                     District Attorney                                                              Private 
+   Supreme Court No:          084188                                            Supreme Court No:            047593 
+   
+   OR 
+   
+    COMMONWEALTH INFORMATION                                                    ATTORNEY INFORMATION 
+
+   Name:             Philadelphia County District Attorney's                   Name:              Jeremy C. Gelb 
+                     Office, Esq.                                                                 Private 
+                     Prosecutor                                                Supreme Court No:           032886 
+*/
+	protected static $attorneyInfoExtraSearch = "\s*(.+?)(?=\s\s)\s{2,}(.+)\s*";
+	protected static $supremeCourtNoSearch: "/Supreme Court No:\s+(\d*).*/";
 	
 	// $1 = code section, $3 = grade, $4 = charge, $5 = offense date, $6 = disposition
 	protected static $mdjChargesSearch = "/^\s*\d\s+((\w|\d|\s(?!\s)|\-|\247|\*)+)\s{2,}(\w{0,2})\s{2,}([\d|\D]+)\s{2,}(\d{1,2}\/\d{1,2}\/\d{4})\s{2,}(\D{2,})/";
@@ -114,8 +149,14 @@ class Docket
 	
 	// this is a crazy one.  Basically matching whitespace then $xx.xx then whitespace then 
 	// -$xx.xx, etc...  The fields show up as Assesment, Payment, Adjustments, Non-Monetary, Total
-	protected static $costsSearch = "/Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
-	protected static $bailSearch = "/Bail.+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
+	protected static $costsFeesTotalSearch = "/Costs\/Fees Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
+	protected static $grandTotalsSearch = "/Grand Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
+	protected static $restitutionTotalsSearch = "/Restitution Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
+	protected static $finesTotalsSearch = "/Fines Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
+
+	// this will find any fines/costs line, including the ones above.  Before using it, test the line for a ":"; if it contains
+	// an ":", then we don't want to match the line.
+	protected static $genericFineCostSearch = "/\s*(.+)\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})/";
 	public function __construct () {}
 	
 	
