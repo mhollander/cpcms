@@ -3,15 +3,15 @@
 // configuration settings for the expungement generator
 //
 
-$debug=TRUE;
+$debug=FALSE;
 
 // database connection information
-/*
-$dbPassword = "XRNRJR6vHGejwNCp";
-$dbUser = "ronholla_ExpUser";
-$dbName = "ronholla_expungementsite";
+
+$dbPassword = "jnXaa6aFBLUJE76b";
+$dbUser = "cpcms";
+$dbName = "cpcms";
 $dbHost = "localhost";
-*/
+
 /*
 require_once("/home/ronholla/tools/dbconnect.php");
 
@@ -24,9 +24,9 @@ $pdftotext = "pdftotext";
 $tempFile = tempnam($dataDir, "FOO");
 
 */
-// require_once("c:\wamp\\tools\dbconnect.php");
+ require_once("c:\wamp\\tools\dbconnect.php");
 
-$docketDir = "c:\cpcms\\dockets\\";
+$docketDir = "c:" . DIRECTORY_SEPARATOR . "cpcms" . DIRECTORY_SEPARATOR . "dockets";
 $toolsDir = "c:\wamp\\tools\\";
 // $baseURL = "http://localhost//";
 $tempFile = tempnam($docketDir, "FOO");

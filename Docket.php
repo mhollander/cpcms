@@ -24,7 +24,9 @@ class Docket
 	private $arrestingAgency;
 	private $arrestDate;
 	private $complaintDate;
-	private $judge;
+	private $judgeAssigned;
+	private $dateFiled;
+	private $initiationDate;
 	private $DOB;
 	private $dispositionDate;
 	private $firstName;
@@ -52,7 +54,26 @@ class Docket
 	private $isArrestSummaryExpungement;
 	private $isArrestOver70Expungement;
 	private $pdfFile;
-	
+	private $crossCourtDocket;
+	private $lowerCourtDocket;
+	private $initialIssuingAuthority;
+	private $finalIssuingAuthority;
+	private $city;
+	private $state;
+	private $zip;
+	private $aliases = array();
+	private $pastAliases = FALSE; // used to stop checking for aliases once we have reached a certain point in the docket sheet
+	private $commonwealthAgency;
+	private $commonwealthRole;
+	private $commonwealthSupremeCourtNumber;
+	private $dLawyer;
+	private $dRole; 
+	private $dSupremeCourtNumber; 
+	private $bAttorneyInfo = FALSE; //used to stop checking for aliases once we have reached a certain point in the docket sheet
+	private $costGeneric = array(); 
+	private $costTotals = array();
+	private $finalDisposition = FALSE;
+	private $caseFinancialInformation = FALSE;
 	// isMDJ = 0 if this is not an mdj case at all, 1 if this is an mdj case and 2 if this is a CP case that decended from MDJ
 	private $isMDJ = 0;
 		
@@ -62,7 +83,8 @@ class Docket
 	protected static $mdjDistrictNumberSearch = "/Magisterial District Judge\s(.*)/i";
 	protected static $countySearch = "/\sof\s(\w+)\sCOUNTY/i";
 	protected static $mdjCountyAndDispositionDateSearch = "/County:\s+(.*)\s+Disposition Date:\s+(.*)/";
-	protected static $OTNSearch = "/OTN:\s+(\D(\s)?\d+(\-\d)?)/";
+	// $1 = OTN, $2 = CCDocket
+	protected static $OTNSearch = "/OTN:\s+(\D(?:\s)?\d+(?:\-\d)?)\s+Lower Court Docket No:\s+(.*)\s*/";
 	protected static $DCSearch = "/District Control Number\s+(\d+)/";
 	protected static $docketSearch = "/Docket Number:\s+((MC|CP)\-\d{2}\-(\D{2})\-\d*\-\d{4})/";
 	protected static $mdjDocketSearch = "/Docket Number:\s+(MJ\-\d{5}\-(\D{2})\-\d*\-\d{4})/";
@@ -72,18 +94,19 @@ class Docket
 	protected static $arrestDateSearch = "/Arrest Date:\s+(\d{1,2}\/\d{1,2}\/\d{4})/";
 	protected static $complaintDateSearch = "/Complaint Date:\s+(\d{1,2}\/\d{1,2}\/\d{4})/";
 	protected static $mdjComplaintDateSearch = "/Issue Date:\s+(\d{1,2}\/\d{1,2}\/\d{4})/";
-	protected static $finalIssuingAuthoritySearch = "/Final Issuing Authority:\s+(.*)/";
-	protected static $judgeAssignedSearch = "/Judge Assigned:\s+(.*)\s+(Date Filed|Issue Date):/";
+	protected static $issuingAuthoritySearch = "/Initial Issuing Authority:\s+(.*)\s+Final Issuing Authority:\s+(.*)/";
+	protected static $judgeAssignedSearch = "/Judge Assigned:\s+(.*)\s+(?:Date Filed|Issue Date):\s+(.*)\s+Initiation Date:\s+(.*)/";
 	protected static $crossCourtDocketSearch = "/Cross Court Docket Nos:\s+(.*)\s*$/"; 
 	protected static $dateFiledSearch = "/Date Filed:\s+(\d{1,2}\/\d{1,2}\/\d{4})/";
 	protected static $lowerCourtDocketSearch = "/Lower Court Docket No:\s+(.*)\s*/";
-	protected static $initialIssuingAuthoritySearch = "/Initial Issuing Authority:\s+(.*)\s{2,}.*/";
 	protected static $cityStateZipSearch = "/City\/State\/Zip:\s+(.*), (\w{2})\s+(\d{5})/";
 	
 	#note that the alias name search only captures a maximum of six aliases.  
 	# This is because if you do this: /^Alias Name\r?\n(?:(^.+)\r?\n)*/m, only the last alias will be stored in $1.  
 	# What a crock!  I can't figure out a way around this
-	protected static $aliasNameSearch = "/^Alias Name\r?\n(?:(^.+)\r?\n)(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?/m"; 
+	protected static $aliasNameStartSearch = "/^Alias Name/"; // \r?\n(?:(^.+)\r?\n)(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?/m"; 
+	protected static $aliasNameEndSearch = "/CASE PARTICIPANTS/";
+	protected static $endOfPageSearch = "/CPCMS 9082/";
 	
 	// there are two special judge situations that need to be covered.  The first is that MDJ dockets sometimes say
 	// "magisterial district judge xxx".  In that case, there could be overflow to the next line.  We want to capture that
@@ -129,8 +152,10 @@ class Docket
                      Office, Esq.                                                                 Private 
                      Prosecutor                                                Supreme Court No:           032886 
 */
-	protected static $attorneyInfoExtraSearch = "\s*(.+?)(?=\s\s)\s{2,}(.+)\s*";
-	protected static $supremeCourtNoSearch: "/Supreme Court No:\s+(\d*).*/";
+	protected static $attorneyInfoExtraSearch = "/\s*(.+?)(?=\s\s)\s{2,}(.+)\s*/";
+	// these match match Supreme Court No is on the P or D side
+	protected static $supremeCourtLeftSearch = "/^\s*Supreme Court No:\s+(\d*).*/";
+	protected static $supremeCourtRightSearch = "/\S+\s+Supreme Court No:\s+(\d*).*/";
 	
 	// $1 = code section, $3 = grade, $4 = charge, $5 = offense date, $6 = disposition
 	protected static $mdjChargesSearch = "/^\s*\d\s+((\w|\d|\s(?!\s)|\-|\247|\*)+)\s{2,}(\w{0,2})\s{2,}([\d|\D]+)\s{2,}(\d{1,2}\/\d{1,2}\/\d{4})\s{2,}(\D{2,})/";
@@ -144,15 +169,19 @@ class Docket
 	//    Migrated Dispositional Event   mm/dd/yyyy    Final  Disposition
 	// 2) on the line after the charge disp
 	// 3) for MDJ cases, disposition date appears on a line by itself, so it is easier to find
-	protected static $dispDateSearch = "/(Status|Status of Restitution|Status - Community Court|Status Listing|Migrated Dispositional Event|Trial|Preliminary Hearing|Pre-Trial Conference)\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+Final Disposition/";
+	protected static $dispDateSearch = "/(?:Plea|Status|Status of Restitution|Status - Community Court|Status Listing|Migrated Dispositional Event|Trial|Preliminary Hearing|Pre-Trial Conference)\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+Final Disposition/";
 	protected static $dispDateSearch2 = "/(.*)\s(\d{1,2}\/\d{1,2}\/\d{4})/";	
 	
 	// this is a crazy one.  Basically matching whitespace then $xx.xx then whitespace then 
 	// -$xx.xx, etc...  The fields show up as Assesment, Payment, Adjustments, Non-Monetary, Total
-	protected static $costsFeesTotalSearch = "/Costs\/Fees Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
-	protected static $grandTotalsSearch = "/Grand Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
-	protected static $restitutionTotalsSearch = "/Restitution Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
-	protected static $finesTotalsSearch = "/Fines Totals:\s+\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})\s+-?\\$([\d\,]+\.\d{2})/";
+	protected static $caseFinancialInformationSearch = "/Case Financial Information/i";
+	protected static $costsFeesTotalSearch = "/Costs\/Fees Totals:\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})/";
+	protected static $grandTotalsSearch = "/Grand Totals:\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})/";
+	protected static $restitutionTotalsSearch = "/Restitution Totals:\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})/";
+	protected static $finesTotalsSearch = "/Fines Totals:\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})/";
+	
+	// if this fails, then we are in an overflow line (if there is a $ or a CPCMS on the line, then it is not a continuation of our line)
+	protected static $finesTotalOverflowNegativeSearch = "(\\$|CPCMS)";
 
 	// this will find any fines/costs line, including the ones above.  Before using it, test the line for a ":"; if it contains
 	// an ":", then we don't want to match the line.
@@ -161,17 +190,16 @@ class Docket
 	
 	
 	//getters
-	public function getMDJDistrictNumber() { return $this->mdjDistrictNumber; }
-	public function getCounty() { if (!isset($this->county)) $this->setCounty(self::$unknownInfo); return $this->county; }
-	public function getOTN() { if (!isset($this->OTN)) $this->setOTN(self::$unknownInfo); return $this->OTN; }
-	public function getDC() { if (!isset($this->DC)) $this->setDC(self::$unknownInfo); return $this->DC; }
+	public function getCounty() { return $this->county; }
+	public function getOTN() { return $this->OTN; }
+	public function getDC() { return $this->DC; }
 	public function getDocketNumber() { return $this->docketNumber; }
-	public function getArrestingOfficer() { if (!isset($this->arrestingOfficer)) $this->setArrestingOfficer(self::$unknownOfficer); return $this->arrestingOfficer; }
+	public function getArrestingOfficer() { return $this->arrestingOfficer; }
 	public function getArrestingAgency() { return $this->arrestingAgency; }
 	public function getArrestDate() { return $this->arrestDate; }
 	public function getComplaintDate() { return $this->complaintDate; }
 	//  getDispositionDate() exists elsewhere
-	public function getJudge() { return $this->judge; }
+	public function getJudgeAssigned() { return $this->judgeAssigned; }
 	public function getDOB() { return $this->DOB; }
 	public function getfirstName() { return $this->firstName; }
 	public function getLastName() { return $this->lastName; }
@@ -197,6 +225,23 @@ class Docket
 	public function getIsSummaryArrest()  { return $this->isSummaryArrest; }
 	public function getIsMDJ() { return $this->isMDJ; }
 	public function getPDFFile() { return $this->pdfFile;}
+	public function getCrossCourtDocket() { return $this->crossCourtDocket; }
+	public function getDateFiled() { return $this->dateFiled; }
+	public function getLowerCourtDocket() { return $this->lowerCourtDocket; }
+	public function getInitialIssuingAuthority() { return $this->initialIssuingAuthority; }
+	public function getFinalIssuingAuthority() { return $this->finalIssuingAuthority; }
+	public function getCity() { return $this->city; }
+	public function getState() { return $this->state; }
+	public function getZip() { return $this->zip; }
+	public function getAliases() { return $this->aliases; }
+	public function getCommonwealthAgency() { return $this->commonwealthAgency; }
+	public function getCommonwealthRole() { return $this->commonwealthRole; }
+	public function getCommonwealthSupremeCourtNumber() { return $this->commonwealthSupremeCourtNumber ; }
+	public function getDLawyer() { return $this->dLawyer; }
+	public function getDRole() { return $this->dRole; }
+	public function getDSupremeCourtNumber() { return $this->dSupremeCourtNumber; }
+	public function getfinesCostsInfo() { return $this->finesCostsInfo; }
+	
 		
 	//setters
 	public function setMDJDistrictNumber($mdjDistrictNumber) { $this->mdjDistrictNumber = $mdjDistrictNumber; }
@@ -217,7 +262,9 @@ class Docket
 	
 	public function setArrestDate($arrestDate) {  $this->arrestDate = $arrestDate; }
 	public function setComplaintDate($complaintDate) {  $this->complaintDate = $complaintDate; }
-	public function setJudge($judge) { $this->judge = $judge; }
+	public function setJudgeAssigned($judge) { $this->judgeAssigned = $judge; }
+	public function setDateFiled($a) { $this->dateFiled = $a; }
+	public function setInitiationDate($a) { $this->initiationDate = $a; }				
 	public function setDispositionDate($dispositionDate) { $this->dispositionDate = $dispositionDate; }
 	public function setDOB($DOB) { $this->DOB = $DOB; }
 	public function setFirstName($firstName) { $this->firstName = $firstName; }
@@ -245,7 +292,27 @@ class Docket
 	public function setIsHeldForCourt($isHeldForCourt)  {  $this->isHeldForCourt = $isHeldForCourt; }
 	public function setIsMDJ($isMDJ)  {  $this->isMDJ = $isMDJ; }
 	public function setPDFFile($pdfFile) { $this->pdfFile = $pdfFile; }
+	public function setCrossCourtDocket($a) { $this->crossCourtDocket = $a; }
+	public function setLowerCourtDocket($a) { $this->lowerCourtDocket = $a; }
+	public function setInitialIssuingAuthority($a) { $this->initialIssuingAuthority = $a; }
+	public function setFinalIssuingAuthority($a) { $this->finalIssuingAuthority = $a; }
+	public function setCity($a) { $this->city = $a; }
+	public function setState($a) { $this->state = $a; }
+	public function setZip($a) { $this->zip = $a; }
+	public function setAliases($a) { $this->aliases = $a; }
+	public function addAlias($a) { $this->aliases[] = $a; }
+	public function setCommonwealthAgency($a) { $this->commonwealthAgency = $a; }
+	public function setCommonwealthRole($a) { $this->commonwealthRole = $a; }
+	public function setCommonwealthSupremeCourtNumber($a) { $this->commonwealthSupremeCourtNumber = $a; }
+	public function setDLawyer($a) { $this->dLawyer = $a; }
+	public function setDRole($a) { $this->dRole = $a; }
+	public function setDSupremeCourtNumber($a) { $this->dSupremeCourtNumber = $a; }
+	public function setCost(&$variable, $name, $cost1, $cost2, $cost3, $cost4, $cost5)
+	{
+		$variable[] = array($name, str_replace("\$", "", $cost1), str_replace("\$", "", $cost2), str_replace("\$", "", $cost3), str_replace("\$", "", $cost4), str_replace("\$", "", $cost5));
+	}
 
+	
 	// add a Bail amount to an already created bail figure
 	public function addBailTotal($bailTotal) 
 	{  
@@ -327,7 +394,7 @@ class Docket
 			// do all of the searches that are common to the MDJ and CP/MC docket sheets
 								
 			// figure out which county we are in
-			if (preg_match(self::$countySearch, $line, $matches))
+			if (empty($this->county) && preg_match(self::$countySearch, $line, $matches))
 				$this->setCounty(trim($matches[1]));
 			elseif (preg_match(self::$mdjCountyAndDispositionDateSearch, $line, $matches))
 			{
@@ -336,7 +403,7 @@ class Docket
 			}
 				
 			// find the docket Number
-			else if (preg_match(self::$docketSearch, $line, $matches))
+			else if (empty($this->docketNumber) && preg_match(self::$docketSearch, $line, $matches))
 			{
 				$this->setDocketNumber(array(trim($matches[1])));
 
@@ -348,51 +415,50 @@ class Docket
 				else
 					$this->setIsSummaryArrest(FALSE);
 			}
-			else if (preg_match(self::$mdjDocketSearch, $line, $matches))
+			else if (empty($this->docketNumber) && preg_match(self::$mdjDocketSearch, $line, $matches))
 			{
 				$this->setDocketNumber(array(trim($matches[1])));
 			}
 			
-			else if (preg_match(self::$OTNSearch, $line, $matches))
+			// search for OTN and Lower Court Docket Number
+			else if (empty($this->OTN) && preg_match(self::$OTNSearch, $line, $matches))
+			{
 				$this->setOTN(trim($matches[1]));
+				$this->setLowerCourtDocket(trim($matches[2]));
+			}
 
-			else if (preg_match(self::$DCSearch, $line, $matches))
+			else if (empty($this->DC) && preg_match(self::$DCSearch, $line, $matches))
 				$this->setDC(trim($matches[1]));
 			
 			// find the arrest date.  First check for agency and arrest date (mdj dockets).  Then check for arrest date alone
-			else if (preg_match(self::$mdjArrestingAgencyAndArrestDateSearch, $line, $matches))
+			else if (empty($this->ArrestingAgency) && preg_match(self::$mdjArrestingAgencyAndArrestDateSearch, $line, $matches))
 			{
 				$this->setArrestingAgency(trim($matches[1]));
 				if (isset($matches[2]))
 					$this->setArrestDate(trim($matches[2]));
 			}
 				
-			else if (preg_match(self::$arrestDateSearch, $line, $matches))
+			else if (empty($this->arrestDate) && preg_match(self::$arrestDateSearch, $line, $matches))
 				$this->setArrestDate(trim($matches[1]));
 
 			// find the complaint date
-			else if (preg_match(self::$complaintDateSearch, $line, $matches))
+			else if (empty($this->complaintDate) && preg_match(self::$complaintDateSearch, $line, $matches))
 				$this->setComplaintDate(trim($matches[1]));
 
 			// for non-mdj, aresting agency and officer are on the same line, so we have to find
 			// them together and deal with them together.
-			else if (preg_match(self::$arrestingAgencyAndOfficerSearch, $line, $matches))
+			else if (empty($this->arrestingAgency) && preg_match(self::$arrestingAgencyAndOfficerSearch, $line, $matches))
 			{
 				// first set the arresting agency
 				$this->setArrestingAgency(trim($matches[1]));
 
 				// then deal with the arresting officer
 				$ao = trim($matches[2]);
-				
-				// if there is no listed affiant or the affiant is "Affiant" then set arresting 
-				// officer to "Unknown Officer"
-				if ($ao == "" || !(stripos("Affiant", $ao)===FALSE))
-					$ao = self::$unknownOfficer;
 				$this->setArrestingOfficer($ao);
 			}	
 
 			// mdj dockets have the arresting office on a line by himself, as last name, first
-			else if (preg_match(self::$mdjArrestingOfficerSearch, $line, $matches))
+			else if (empty($this->arrestingOfficer) && preg_match(self::$mdjArrestingOfficerSearch, $line, $matches))
 			{
 				$officer = trim($matches[1]);
 				// find the comma and switch the order of the names
@@ -403,55 +469,129 @@ class Docket
 				$this->setArrestingOfficer($officer);				
 			}
 				
+			// new stuff for the CMCPS shindig
+			// initial and final issuing authority
+			else if (empty($this->initialIssuingAuthority) && preg_match(self::$issuingAuthoritySearch, $line, $matches))
+			{
+				$initialIA = trim($matches[1]);
+				$finalIA = trim($matches[2]);
+				$this->setInitialIssuingAuthority($initialIA);
+				$this->setfinalIssuingAuthority($finalIA);
+			}
 			
-			// the judge name can appear in multiple places.  Start by checking to see if the
-			// judge's name appears in the Judge Assigned field.  If it does, then set it.
-			// Later on, we'll check in the "Final Issuing Authority" field.  If it appears there
-			// and doesn't show up as "migrated," we'll reassign the judge name.
-			else if (preg_match(self::$judgeAssignedSearch, $line, $matches))
+			else if (empty($this->crossCourtDocket) && preg_match(self::$crossCourtDocketSearch, $line, $matches))
+			{
+				$ccDocketNo = trim($matches[1]);
+				$this->setCrossCourtDocket($ccDocketNo);
+			}
+			
+				
+			// judge assigned search has the judge assignd, date filed, initiation date
+			else if (empty($this->judgeAssigned) && preg_match(self::$judgeAssignedSearch, $line, $matches))
 			{
 				$judge = trim($matches[1]);
+				$dateFiled = trim($matches[2]);
+				$initiationDate = trim($matches[3]);
 				
-				// check to see if this line has "magisterial district judge" in it.  If it does, 
-				// lop off that phrase and then check the next line to see if anything important is on it
-				if (preg_match(self::$magisterialDistrictJudgeSearch, $judge, $judgeMatch))
-				{
-					// first catch the judge
-					$judge = trim($judgeMatch[1]);
-					
-					// then check the next line to see if there is anything of interest
-					$i = $line_num+1;
-					if (preg_match(self::$judgeSearchOverflow, $arrestRecordFile[$i], $judgeOverflowMatch))
-						$judge .= " " . trim($judgeOverflowMatch[1]);					
-				}
-			
-				if (!preg_match(self::$migratedJudgeSearch, $judge, $junk))
-					$this->setJudge($judge);
-					
-				// if this is an mdj docket, the complaint date will also be on this same line, so we want to search for that as well
-				if (preg_match(self::$mdjComplaintDateSearch, $line, $matches))
-				$this->setComplaintDate(trim($matches[1]));
+				$this->setJudgeAssigned($judge);
+				$this->setDateFiled($dateFiled);
+				$this->setInitiationDate($initiationDate);
 			}
-			
-			else if (preg_match(self::$judgeSearch, $line, $matches))
+				
+			else if  (empty($this->DOB) && preg_match(self::$DOBSearch, $line, $matches))
 			{
-				// make sure the judge field isn't blank or doesn't equal "migrated"
-				if (!preg_match(self::$migratedJudgeSearch, $matches[1], $junk) && trim($matches[1]) != "")
-					$this->setJudge(trim($matches[1]));
-			}
-			
-			
-			else if  (preg_match(self::$DOBSearch, $line, $matches))
 				$this->setDOB(trim($matches[1]));
 			
-			else if (preg_match(self::$nameSearch, $line, $matches))
+				// also try to match the city/state/zip if there is one set
+				if (preg_match(self::$cityStateZipSearch, $line, $matches))
+				{
+					$this->setCity(trim($matches[1]));
+					$this->setState(trim($matches[2]));
+					$this->setZip(trim($matches[3]));
+				}
+			}
+			
+			else if (empty($this->firstName) && preg_match(self::$nameSearch, $line, $matches))
 			{
 				$this->setFirstName(trim($matches[2]));
 				$this->setLastName(trim($matches[1]));
 			}
 
-			else if (preg_match(self::$dispDateSearch, $line, $matches))
-				$this->setDispositionDate($matches[2]);
+			else if (!$this->pastAliases && preg_match(self::$aliasNameStartSearch, $line))
+			{
+				
+				$i = $line_num+1;
+				while (!preg_match(self::$aliasNameEndSearch, $arrestRecordFile[$i]))
+				{
+					// once in a while, the aliases are at the end of a page, which means we get to the footer information
+					// before we get to the regular marker of the end of the aliases.  We have to watch out for this
+					// and break if we find it
+					if (preg_match(self::$endOfPageSearch, $arrestRecordFile[$i]))
+						break;
+						
+					//push the alias onto the array of aliases
+					if (preg_match("/\w/", $arrestRecordFile[$i]))
+						$this->addAlias(trim($arrestRecordFile[$i]));
+					$i++;
+				}
+				
+				// once we match the CASE PARTICIPANTS line, we know we are done with this iteration
+				$this->pastAliases = TRUE;					
+			}			
+
+			// only do this section if we haven't gotten to the line that says Commonwealth Information && we match that line, 
+			// which means that we can get information on the lawyers in the case
+			else if (!$this->bAttorneyInfo && preg_match(self::$attorneyInfoHeaderSearch, $line))
+			{
+				$i = $line_num+1;
+				// first get information about the P and then the D
+		
+				$pInformation = array();
+				// grab the name of the agency/attorney
+				if (preg_match(self::$attorneyInfoSearch, $arrestRecordFile[$i], $matches))
+					$pInformation[] = trim($matches[1]);
+				$i++;
+				// as long as we haven't gotten the left section
+				while (!preg_match(self::$supremeCourtLeftSearch, $arrestRecordFile[$i], $matches))
+				{
+					if (preg_match(self::$attorneyInfoExtraSearch, $arrestRecordFile[$i], $aMatches))
+						$pInformation[] = trim($aMatches[1]);
+					$i++;
+				}
+				
+				$this->setCommonwealthRole(array_pop($pInformation));
+				$this->setCommonwealthAgency(implode(" ", $pInformation));
+				$this->setCommonwealthSupremeCourtNumber(trim($matches[1]));
+				
+				// now find and set the D information
+				$i = $line_num+1;
+				$dInformation = array();
+				// grab the name of the agency/attorney
+				if (preg_match(self::$attorneyInfoSearch, $arrestRecordFile[$i], $matches))
+					$dInformation[] = trim($matches[2]);
+				$i++;
+				// as long as we haven't gotten the left section
+				while (!preg_match(self::$supremeCourtRightSearch, $arrestRecordFile[$i], $matches))
+				{
+					if (preg_match(self::$attorneyInfoExtraSearch, $arrestRecordFile[$i], $aMatches))
+						$dInformation[] = trim($aMatches[2]);
+					$i++;
+				}
+				
+				$this->setDRole(array_pop($dInformation));
+				$this->setDLawyer(implode(" ", $dInformation));
+				$this->setDSupremeCourtNumber(trim($matches[1]));
+
+				// once we find the attorney information, we are done with this search
+				$this->bAttorneyInfo = TRUE;					
+				
+			}
+			
+			else if (!$this->finalDisposition && preg_match(self::$dispDateSearch, $line, $matches))
+			{
+				$this->setDispositionDate($matches[1]);
+				$this->finalDisposition = TRUE;
+			}
 				
 			// charges can be spread over two lines sometimes; we need to watch out for that
 			else if (preg_match(self::$chargesSearch, $line, $matches))
@@ -478,7 +618,7 @@ class Docket
 				else
 					$dispositionDate = NULL;
 					
-				$charge = new Charge($charge, $matches[2], trim($matches[4]), trim($dispositionDate), trim($matches[3]));
+				$charge = new Charge($charge, $matches[2], trim($matches[4]), trim($dispositionDate), trim($matches[3]), $this->finalDisposition);
 				$this->addCharge($charge);
 			}
 			
@@ -506,7 +646,35 @@ class Docket
 				$charge = new Charge($charge, trim($matches[6]), trim($matches[1]), trim($dispositionDate), trim($matches[3]));
 				$this->addCharge($charge);
 			}			
-			
+
+			// get all of our costs and fines information
+			// but first, set a flag so that we know we should be searching for this information, so that we don't
+			// kill our search speed
+			else if (!$this->caseFinancialInformation && preg_match(self::$caseFinancialInformationSearch, $line, $matches))
+				$this->caseFinancialInformation = TRUE;
+			else if ($this->caseFinancialInformation && preg_match(self::$costsFeesTotalSearch, $line, $matches))
+				$this->setCost($this->costTotals, "Costs/Fees Totals", trim($matches[1]),  trim($matches[2]), trim($matches[3]), trim($matches[4]), trim($matches[5]));
+			else if ($this->caseFinancialInformation && preg_match(self::$grandTotalsSearch, $line, $matches))
+				$this->setCost($this->costTotals, "Grand Totals", trim($matches[1]),  trim($matches[2]), trim($matches[3]), trim($matches[4]), trim($matches[5]));
+			else if ($this->caseFinancialInformation && preg_match(self::$restitutionTotalsSearch, $line, $matches))
+				$this->setCost($this->costTotals, "Restitution Totals", trim($matches[1]),  trim($matches[2]), trim($matches[3]), trim($matches[4]), trim($matches[5]));
+			else if ($this->caseFinancialInformation && preg_match(self::$finesTotalsSearch, $line, $matches))
+				$this->setCost($this->costTotals, "Fines Totals", trim($matches[1]),  trim($matches[2]), trim($matches[3]), trim($matches[4]), trim($matches[5]));
+
+			else if ($this->caseFinancialInformation && preg_match(self::$genericFineCostSearch, $line, $matches))
+			{
+
+				$costName = trim($matches[1]);
+				
+				// check for overflow				
+				$i = $line_num+1;
+				if (!preg_match(self::$finesTotalOverflowNegativeSearch, $arrestRecordFile[$i], $overlfowMatch))
+					$costName .= " " . trim($arrestRecordFile[$i]);
+
+				$this->setCost($this->costGeneric, $costName, trim($matches[2]),  trim($matches[3]), trim($matches[4]), trim($matches[5]), trim($matches[6]));
+			}
+
+			/*
 			else if (preg_match(self::$bailSearch, $line, $matches))
 			{
 				$this->addBailCharged(doubleval(str_replace(",","",$matches[1])));  
@@ -522,6 +690,7 @@ class Docket
 				$this->setCostsAdjusted(doubleval(str_replace(",","",$matches[3])));
 				$this->setCostsTotal(doubleval(str_replace(",","",$matches[5])));  // tot final amount, after all adjustments
 			}
+			*/
 		}
 	}
 		
@@ -1064,68 +1233,150 @@ class Docket
 		
 	public function simplePrint()
 	{
-		echo "\nDocket #:";
+		print "\nDocket Num: ";
 		foreach ($this->getDocketNumber() as $value)
 			print "$value | ";
-		echo "\nName: " . $this->getFirstName() . ". " . $this->getLastName();
-		echo "\nDOB: " . $this->getDOB();
-		echo "\nage: " . $this->getAge();
-		echo "\nOTN: " . $this->getOTN();
-		echo "\nDC: " .$this->getDC();
-		echo "\narrestingOfficer: " .$this->getArrestingOfficer();
-		echo "\narrestDate: " . $this->getArrestDate();
-		echo "\njudge: " .$this->getJudge();
+ 		print "\nCross Court Docket: " . $this->getCrossCourtDocket();
+		print "\nLower Court Docket: " . $this->getLowerCourtDocket();
+		print "\nOTN: " . $this->getOTN();
+		print "\nDC: " . $this->getDC();
+		print "\nArresting Officer: " . $this->getArrestingOfficer();
+		print "\nArresting Agency: " . $this->getArrestingAgency();
+		print "\nDate Filed: " . $this->getDateFiled();
+		print "\nArrest Date: " . $this->getArrestDate();
+		print "\nComplaint Date: " . $this->getComplaintDate();
+		print "\nInitial Authority: " . $this->getInitialIssuingAuthority();
+		print "\nFinal Authority: " . $this->getFinalIssuingAuthority();
+		print "\nJudge Assigned: " . $this->getJudgeAssigned();
+		print "\nFirst Name: " . $this->getFirstName();
+		print "\nLast Name: " . $this->getLastName();
+		print_r ($this->getAliases());
+		print "\nDOB: " . $this->getDOB();
+		print "\nCity: " . $this->getCity();
+		print "\nState: " . $this->getState();
+		print "\nZip: " . $this->getZip();
+		print "\nCounty: " . $this->getCounty();
+		print "\nCW Agency: " . $this->getCommonwealthAgency();
+		print "\nCW Role: " . $this->getCommonwealthRole();
+		print "\nCW Supreme Ct ID: " . $this->getCommonwealthSupremeCourtNumber();
+		print "\nD Lawyer: " . $this->getDLawyer();
+		print "\nD Role: " . $this->getDRole();
+		print "\nD SupremeCt ID: " . $this->getDSupremeCourtNumber();
+		
 		foreach ($this->getCharges() as $num=>$charge)
 		{
-			echo "\ncharge $num: " . $charge->getChargeName() . "|".$charge->getDisposition()."|".$charge->getCodeSection()."|".$charge->getDispDate();
+			print "\n\tcharge $num: " . $charge->getChargeName() . "|".$charge->getDisposition()."|".$charge->getCodeSection()."|".$charge->getGrade()."|".$charge->getDispDate()."|".$charge->getFinalDisposition();
 		}
-		echo "\nTotal Costs: " .$this->getCostsTotal();
-		echo "\nCosts Paid: " . $this->getCostsPaid();
-		echo "\n";
-	}
-	
-/*					
-	public function writeExpungementToDatabase($person, $attorney, $db)
-	{
-		// the defendant has already been inserted
-		// next insert the arrest, which includes the defendant ID
-		// next insert each charge, which includes the arrest id and the defendant ID
-		// finally insert the expungement, which includes the arrest id, the defendant id, the chargeid, the userid, and a timestamp
-		$defendantID = $person->getPersonID();
-		$attorneyID = $attorney->getUserID();
-		$arrestID = $this->writeArrestToDatabase($defendantID, $db);
+		
+		foreach ($this->costTotals as $cost)
+			print_r($cost);
+		foreach ($this->costGeneric as $cost)
+			print_r($cost);
 
-		// we only want to write an expungement to the database if this is a redactable arrest
-		if ($this->isArrestExpungement() || $this->isArrestRedaction() || $this->isArrestSummaryExpungement)
-			$expungementID = $this->writeExpungementDataToDatabase($arrestID, $defendantID, $attorneyID, $db);
-		else
-			$expungementID = "NULL";
-			
-		$numRedactableCharges = 0;
-		foreach ($this->getCharges() as $charge)
-		{
-			// if the charge isn't redactable, we don't want to include an expungement ID
-			// The expungementID may be placed on other charges from the same arrest.
-			// We use a tempID so that we don't change the value of the main variable each time 
-			// through the loop.
-			// If we are a redactable charge, increment the counter.
-			$tempExpungementID = $expungementID;
-			if (!$charge->isRedactable() && (!$this->isArrestSummaryExpungement && !$this->isArrestOver70Expungement))
-				$tempExpungementID = "NULL";
-			else
-				$numRedactableCharges++;
-				
-			$chargeID = $this->writeChargeToDatabase($charge, $arrestID, $defendantID, $tempExpungementID, $db);
-		}
-		
-		$this->updateExpungementWithNumCharges($expungementID, $numRedactableCharges, $db);
-		
-		// finally, save the PDF to the database, if there was a pdf file to save
-		$this->writePDFToDatabase($expungementID, $db);
-		
-		
 	}
 	
+ 	public function writeDocketToDatabase($db)
+	{
+		// write the defendant to the database and get the ID
+		$defendantID = $this->writeDefendantToDatabase($db);
+		
+		// write both attorneys to the database and get the IDs
+		$defAttorneyID = $this->writeAttorneyToDatabase($db, $this->getDLawyer(), $this->getDRole(), $this->getDSupremeCourtNumber());
+		$cwAttorneyID = $this->writeAttorneyToDatabase($db, $this->getCommonwealthAgency(), $this->getCommonwealthRole(), $this->getCommonwealthSupremeCourtNumber());
+
+/*		
+		// write the main docket information to the database
+		$caseID = $this->writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID);
+		
+		// write the charges to the database
+		$this->writeChargesToDatabase($db, $caseID);
+		
+		// write the fines and costs to the database		
+		$this->writeFinesCostsToDatabase($db, $caseID);		
+*/
+	}
+
+	// @return the id of the defendant just inserted into the database
+	// @param $db - the database handle
+	public function writeDefendantToDatabase($db)
+	{
+		$aliasesDelimited = "";
+		foreach ($this->getAliases() as $name)
+		{
+			if (empty($aliasesDelimited))
+				$aliasesDelimited = "$name";
+			else
+				$aliasesDelimited .= ";$name";
+		}
+	
+		$sql = "INSERT INTO Defendant (`firstName`, `lastName`, `DOB`, `city`, `state`, `zip`, `aliases`) VALUES ('" . mysql_real_escape_string($this->getFirstName()) . "', '" . mysql_real_escape_string($this->getlastName()) . "', '" . dateConvert($this->getDOB()) . "', '" . mysql_real_escape_string($this->getCity()) . "', '" . mysql_real_escape_string($this->getState()) . "', '" . mysql_real_escape_string($this->getZip()) . "', '" . mysql_real_escape_string($aliasesDelimited) . "')";
+		
+		$result = mysql_query($sql, $db);
+		if (!$result) 
+			die('Could not add defendant to the DB:' . mysql_error());
+
+		return mysql_insert_id();
+	}
+	
+	// @return the id of the attorney just inserted into the database (or found in the database)
+	// @param $db - the database handle
+	// @param $name - the name of the attorney or agency
+	// @param $role - the role (private attorney, prosecutor, etc...)
+	// @param $barID - the attorney's pa bar ID number
+	public function writeAttorneyToDatabase($db, $name, $role, $barID)
+	{
+		// look up the attorney first.  If we find the attorney, then return the attorney ID; if not, then insert the attorney
+		$id = $this->checkInDB($db, "Attorney", "supremeCourtID", $barID, "AttorneyName", $name, "id");
+		
+		// $id will only equal 0 if there is no attorney with this name in the DB
+		if ($id == 0)
+		{
+			print "\nInserting new attorney: $name";
+			$sql = "INSERT INTO Attorney (`attorneyName`, `role`, `supremeCourtID`) VALUES ('" . mysql_real_escape_string($name) . "', '" . mysql_real_escape_string($role) . "', '" . mysql_real_escape_string($barID) . "')";
+
+			print "\n" . $sql; 
+			
+			$result = mysql_query($sql, $db);
+			if (!$result) 
+				die('Could not add defendant to the DB:' . mysql_error());
+			
+			return mysql_insert_id();
+		
+		}
+		else 
+			return $id;
+	}
+
+	// checks to see if an item is in the specified table in the db
+	// if it is, return the row number; if not, return 0
+	// @return 0 if there is nothing in the DB and the $fieldSought otherwise
+	// @param $db the database handle
+	// @param $table - the table to search in
+	// @param $field - the field to match to see if we have a unique entry
+	// @param $value - the value of the field to match to see if we have a unique entry
+	// @param $field2 - the other field to match to see if we have a unique entry
+	// @param $value2 - the other value of the field to match to see if we have a unique entry
+	// @param $fieldSought - the field we want returned if this is not a unique entry
+	public function checkInDB($db, $table, $field, $value, $field2, $value2, $fieldSought)
+	{
+		$sql = "SELECT id FROM $table WHERE $field='" . mysql_real_escape_string($value) . "'";
+		if (!empty($field2) && !empty($value2))
+			$sql .= " AND $field2='" . mysql_real_escape_string($value2) . "'";
+		if ($GLOBALS['debug'])
+			print $sql;
+		$result = mysql_query($sql, $db);
+		if (!$result) 
+			die('Could not check if the item existed in table $table in the DB:' . mysql_error());
+		
+		// if there is a row already, then set the person ID, return true, and get out
+		if (mysql_num_rows($result)>0)
+			return mysql_result($result,0);
+		else
+			return 0;
+	}
+
+	
+/*
 	// @return the id of the arrest just inserted into the database
 	// @param $defendantID - the id of the defendant that this arrest concerns
 	// @param $db - the database handle

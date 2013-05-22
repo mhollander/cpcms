@@ -7,14 +7,36 @@ require_once("Docket.php");
 // open dir
 // for each file
 $file = $docketDir . "2010\\51\\CP\\1000\\CP-51-CR-0000011-2010.pdf";
-processDocket($file);
+$file = $docketDir . "2009\\01\\CR\\1000\\CP-01-CR-0000012-2009.pdf";
+
+getAndProcessFiles($GLOBALS['docketDir']);
+//processDocket($file);
+
+
+function getAndProcessFiles($dir)
+{
+	if ($handle = opendir($dir)) 
+	{ 
+		while (false !== ($file = readdir($handle))) 
+		{
+			 if ($file != "." && $file != "..") 
+			 { 
+				$fullFileName = $dir . DIRECTORY_SEPARATOR . $file; 
+				if(is_dir($fullFileName)) 
+					getAndProcessFiles($fullFileName); 
+				else if (fnmatch("*pdf", $file))
+					processDocket($fullFileName);
+			}
+		}
+	}
+}
 
 function processDocket($file)
 {
 	$command = $GLOBALS['toolsDir'] . $GLOBALS['pdftotext']	. " -layout \"" . $file . "\" \"" . $GLOBALS['tempFile'] . "\"";
 	system($command, $ret);
 	if($GLOBALS['debug'])
-		print "The pdftotext command: $command \n";
+		print "\nThe pdftotext command: $command \n";
 
 	if ($ret == 0)
 	{
@@ -29,7 +51,14 @@ function processDocket($file)
 			$docket->readArrestRecord($thisDocket);
 		}
 		
-		$docket->simplePrint();
+		$docket->writeDocketToDatabase($GLOBALS['db']);
+		
+		$docketNumber = $docket->getDocketNumber();
+		
+		if($GLOBALS['debug'])
+			$docket->simplePrint();
+		else
+			print "\n" . $docketNumber[0];
 	}
 }
 
