@@ -19,7 +19,7 @@ class Docket
 	private $county;
 	private $OTN;
 	private $DC;
-	private $docketNumber = array();
+	private $docketNumber;
 	private $arrestingOfficer;
 	private $arrestingAgency;
 	private $arrestDate;
@@ -338,20 +338,7 @@ class Docket
 	// push a single chage onto the charge array
 	public function addCharge($charge) {  $this->charges[] = $charge; }
 	
-	
-	// @return the first docket number on the array, which should be the CP or lead docket num
-	public function getFirstDocketNumber() 
-	{
 		
-		if (count($this->getDocketNumber()) > 0)
-		{
-			$docketNumber = $this->getDocketNumber();
-			return $docketNumber[0];
-		}
-		else
-			return NULL;
-	}
-	
 	// @return true if the arrestRecordFile is a docket sheet, false if it isn't
 	public function isDocketSheet($arrestRecordFile)
 	{
@@ -405,7 +392,7 @@ class Docket
 			// find the docket Number
 			else if (empty($this->docketNumber) && preg_match(self::$docketSearch, $line, $matches))
 			{
-				$this->setDocketNumber(array(trim($matches[1])));
+				$this->setDocketNumber(trim($matches[1]));
 
 				// we want to set this to be a summary offense if there is an "SU" in the 
 				// docket number.  The normal docket number looks like this:
@@ -417,7 +404,7 @@ class Docket
 			}
 			else if (empty($this->docketNumber) && preg_match(self::$mdjDocketSearch, $line, $matches))
 			{
-				$this->setDocketNumber(array(trim($matches[1])));
+				$this->setDocketNumber(trim($matches[1]));
 			}
 			
 			// search for OTN and Lower Court Docket Number
@@ -1284,13 +1271,16 @@ class Docket
 		$defAttorneyID = $this->writeAttorneyToDatabase($db, $this->getDLawyer(), $this->getDRole(), $this->getDSupremeCourtNumber());
 		$cwAttorneyID = $this->writeAttorneyToDatabase($db, $this->getCommonwealthAgency(), $this->getCommonwealthRole(), $this->getCommonwealthSupremeCourtNumber());
 
-/*		
+		// write the arresting agency to the database and get the ID
+		$arrestingAgencyID = $this->writeArrestingAgencyToDatabase($db);
+		
 		// write the main docket information to the database
-		$caseID = $this->writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID);
+		$caseID = $this->writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID, $arrestingAgencyID);
+
 		
 		// write the charges to the database
 		$this->writeChargesToDatabase($db, $caseID);
-		
+/*		
 		// write the fines and costs to the database		
 		$this->writeFinesCostsToDatabase($db, $caseID);		
 */
@@ -1331,10 +1321,10 @@ class Docket
 		// $id will only equal 0 if there is no attorney with this name in the DB
 		if ($id == 0)
 		{
-			print "\nInserting new attorney: $name";
+			//print "\nInserting new attorney: $name";
 			$sql = "INSERT INTO Attorney (`attorneyName`, `role`, `supremeCourtID`) VALUES ('" . mysql_real_escape_string($name) . "', '" . mysql_real_escape_string($role) . "', '" . mysql_real_escape_string($barID) . "')";
 
-			print "\n" . $sql; 
+			//print "\n" . $sql; 
 			
 			$result = mysql_query($sql, $db);
 			if (!$result) 
@@ -1345,6 +1335,94 @@ class Docket
 		}
 		else 
 			return $id;
+	}
+
+	// @return the id of the arresting agency just inserted into the database (or found in the database)
+	// @param $db - the database handle
+	public function writeArrestingAgencyToDatabase($db)
+	{
+		// look up the attorney first.  If we find the attorney, then return the attorney ID; if not, then insert the attorney
+		$id = $this->checkInDB($db, "ArrestingAgency", "agencyName", $this->getArrestingAgency(), null, null, "id");
+		
+		// $id will only equal 0 if there is no attorney with this name in the DB
+		if ($id == 0)
+		{
+			// print "\nInserting new agency: " . $this->getArrestingAgency();
+			$sql = "INSERT INTO ArrestingAgency (`agencyName`) VALUES ('" . mysql_real_escape_string($this->getArrestingAgency()). "')";
+
+			// print "\n" . $sql; 
+			
+			$result = mysql_query($sql, $db);
+			if (!$result) 
+				die('Could not add agency to the DB:' . mysql_error());
+			
+			return mysql_insert_id();
+		
+		}
+		else 
+			return $id;
+	}
+
+	// @return the id of the arresting agency just inserted into the database (or found in the database)
+	// @param $db - the database handle
+	// @param $caseID - the id of the case that we are writing charges for
+	public function writeChargesToDatabase($db, $caseID)
+	{
+		// iterate over each charge on the charges array
+		foreach ($this->getCharges() as $charge)
+		{
+		
+			// look up the charge first.  If we find the charge, then return the charge ID; if not, then insert the charge
+			$chargeid = $this->checkInDB($db, "Charges", "chargeName", $charge->getChargeName(), "codeSection", $charge->getCodeSection(), "id");
+		
+			// $id will only equal 0 if there is no attorney with this name in the DB
+			// if the ID is 0, then we start by adding the charge to the chargeDB
+			if ($chargeid == 0)
+			{
+			//	 print "\nInserting new charge: " . $charge->getChargeName();
+				$sql = "INSERT INTO Charges (`chargeName`, `codeSection`) VALUES ('" . mysql_real_escape_string($charge->getChargeName()). "', '" . mysql_real_escape_string($charge->getCodeSection()). "')";
+
+				 // print "\n" . $sql; 
+			
+				$result = mysql_query($sql, $db);
+				if (!$result) 
+					die('Could not add charge to the DB:' . mysql_error());
+			
+				$chargeid = mysql_insert_id();
+			}
+			
+			// next, check to see if the disposition is in the database
+			$dispositionID = $this->checkInDB($db, "Dispositions", "dispositionName", $charge->getDisposition(), null, null, "id");
+		
+			// $id will only equal 0 if there is no attorney with this name in the DB
+			// if the ID is 0, then we start by adding the charge to the chargeDB
+			if ($dispositionID == 0)
+			{
+				// print "\nInserting new disposition: " . $charge->getDisposition();
+				$sql = "INSERT INTO Dispositions (`dispositionName`) VALUES ('" . mysql_real_escape_string($charge->getDisposition()). "')";
+
+				 // print "\n" . $sql; 
+			
+				$result = mysql_query($sql, $db);
+				if (!$result) 
+					die('Could not add disposition to the DB:' . mysql_error());
+			
+				$dispositionID = mysql_insert_id();
+			}
+		
+			// now that we have all of our IDs, add the actual charge to the database
+			$sql = "INSERT INTO CaseCharges (`caseID`, `chargeID`, `dispositionID`, `grade`, `dispDate`, `isFinalDisposition`) VALUES ('$caseID', '$chargeid', '$dispositionID', '" . mysql_real_escape_string($charge->getGrade()). "', '" . dateConvert($charge->getDispDate()) . "', '" . (int)$charge->getFinalDisposition(). "')";
+
+			//print "\n" . $sql; 
+		
+			$result = mysql_query($sql, $db);
+			if (!$result) 
+				die('Could not add case-charge to the DB:' . mysql_error());
+		
+		}
+		
+		
+		
 	}
 
 	// checks to see if an item is in the specified table in the db
@@ -1362,11 +1440,12 @@ class Docket
 		$sql = "SELECT id FROM $table WHERE $field='" . mysql_real_escape_string($value) . "'";
 		if (!empty($field2) && !empty($value2))
 			$sql .= " AND $field2='" . mysql_real_escape_string($value2) . "'";
-		if ($GLOBALS['debug'])
-			print $sql;
+
 		$result = mysql_query($sql, $db);
 		if (!$result) 
 			die('Could not check if the item existed in table $table in the DB:' . mysql_error());
+		
+		// print "\n$sql";
 		
 		// if there is a row already, then set the person ID, return true, and get out
 		if (mysql_num_rows($result)>0)
@@ -1376,27 +1455,23 @@ class Docket
 	}
 
 	
-/*
+
 	// @return the id of the arrest just inserted into the database
 	// @param $defendantID - the id of the defendant that this arrest concerns
 	// @param $db - the database handle
-	public function writeArrestToDatabase($defendantID, $db)
+	// @param $defAttorneyID - the id of the defense attorney
+	// @param $cwAttorneyID - the id of the commonwealth attorney
+	public function writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID, $arrestingAgencyID)
 	{
-		$sql = "INSERT INTO arrest (`defendantID`, `OTN` ,`DC` ,`docketNumPrimary` ,`docketNumRelated` ,`arrestingOfficer` ,`arrestDate` ,`dispositionDate` ,`judge` ,`costsTotal` ,`costsPaid` ,`costsCharged` ,`costsAdjusted` ,`bailTotal` ,`bailCharged` ,`bailPaid` ,`bailAdjusted` ,`bailTotalToal` ,`bailChargedTotal` ,`bailPaidTotal` ,`bailAdjustedTotal` ,`isARD` ,`isSummary` ,`county` ,`policeLocality`) VALUES ('$defendantID', '" . $this->getOTN() . "', '" . $this->getDC() . "', '" . $this->getFirstDocketNumber() . "', '" . implode("|", $this->getDocketNumber()) . "', '" . mysql_real_escape_string($this->getArrestingOfficer()) . "', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getDispositionDate()) . "', '" . mysql_real_escape_string($this->getJudge()) . "', '" . $this->getCostsTotal() . "', '" . $this->getCostsPaid() . "', '" . $this->getCostsCharged() . "', '" . $this->getCostsAdjusted() . "', '" . $this->getBailTotal() . "', '" . $this->getBailCharged() . "', '" . $this->getBailPaid() . "', '" . $this->getBailAdjusted() . "', '" . $this->getBailTotalTotal() . "', '" . $this->getBailChargedTotal() . "', '" . $this->getBailPaidTotal() . "', '" . $this->getBailAdjustedTotal() . "', '" . $this->getIsARDExpungement() . "', '" . $this->getIsSummaryArrest() . "', '" . $this->getCounty() . "', '" . mysql_real_escape_string($this->getArrestingAgency()) . "')";
+		$sql = "INSERT INTO `Case` (`docket`, `crossCourtDocket`, `lowerCourtDocket`, `OTN`, `DC`, `dateFiled`, `arrestDate`, `complaintDate`, `arrestingOfficer`, `arrestingAgencyID`, `initialAuthority`, `finalAuthority`, `judgeAssigned`, `county`, `defendantID`, `CWAttorneyID`, `defAttorneyID`) VALUES ('" . mysql_real_escape_string($this->getDocketNumber()) ."', '" . mysql_real_escape_string($this->getCrossCourtDocket()) ."', '" . mysql_real_escape_string($this->getLowerCourtDocket()) ."', '" . $this->getOTN() . "', '" . $this->getDC() . "', '" . dateConvert($this->getDateFiled()) . "', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getComplaintDate()) . "', '" . mysql_real_escape_string($this->getArrestingOfficer()) . "', '" . $arrestingAgencyID . "', '" . mysql_real_escape_string($this->getInitialIssuingAuthority()) . "', '" . mysql_real_escape_string($this->getFinalIssuingAuthority()) . "', '" . mysql_real_escape_string($this->getJudgeAssigned()) . "', '" . mysql_real_escape_string($this->getCounty()) . "', '" . $defendantID . "', '" . $cwAttorneyID . "', '" . $defAttorneyID . "')";
 
-		if ($GLOBALS['debug'])
-			print $sql;
+		// print $sql;
 		$result = mysql_query($sql, $db);
 		if (!$result) 
-		{
-			if ($GLOBALS['debug'])
 				die('Could not add the arrest to the DB:' . mysql_error());
-			else
-				die('Could not add the arrest to the DB');
-		}
 		return mysql_insert_id();
 	}
-	
+/*	
 	// @return the id of the charge just inserted into the database
 	// @param $defendantID - the id of the defendant that this arrest concerns
 	// @param $db - the database handle

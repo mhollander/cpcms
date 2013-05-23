@@ -39,7 +39,7 @@ class Charge
 	public function getIsRedactable() { return $this->isRedactable; }
 	public function getIsSummaryRedactable() { return $this->isSummaryRedactable; }
 	public function getIsARD() { return $this->isARD; }
-	public function getGrade() { if (!isset($this->grade) || $this->grade == "") $this->setGrade("unk"); return $this->grade; }
+	public function getGrade() { return $this->grade; }
 	public function getFinalDisposition() { return $this->finalDisposition; }
 	
 	public function isRedactable()

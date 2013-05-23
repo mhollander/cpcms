@@ -53,12 +53,10 @@ function processDocket($file)
 		
 		$docket->writeDocketToDatabase($GLOBALS['db']);
 		
-		$docketNumber = $docket->getDocketNumber();
-		
 		if($GLOBALS['debug'])
 			$docket->simplePrint();
 		else
-			print "\n" . $docketNumber[0];
+			print "\n" . $docket->getDocketNumber();
 	}
 }
 
