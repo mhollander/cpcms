@@ -240,7 +240,8 @@ class Docket
 	public function getDLawyer() { return $this->dLawyer; }
 	public function getDRole() { return $this->dRole; }
 	public function getDSupremeCourtNumber() { return $this->dSupremeCourtNumber; }
-	public function getfinesCostsInfo() { return $this->finesCostsInfo; }
+	public function getCostGeneric() { return $this->costGeneric; }
+	public function getCostTotal() { return $this->costTotals; }
 	
 		
 	//setters
@@ -310,29 +311,6 @@ class Docket
 	public function setCost(&$variable, $name, $cost1, $cost2, $cost3, $cost4, $cost5)
 	{
 		$variable[] = array($name, str_replace("\$", "", $cost1), str_replace("\$", "", $cost2), str_replace("\$", "", $cost3), str_replace("\$", "", $cost4), str_replace("\$", "", $cost5));
-	}
-
-	
-	// add a Bail amount to an already created bail figure
-	public function addBailTotal($bailTotal) 
-	{  
-		$this->bailTotal = $this->getBailTotal() + $bailTotal; 
-		$this->bailTotalTotal = $this->getBailTotalTotal() + $bailTotal; 
-	}
-	public function addBailPaid($bailPaid)  
-	{  
-		$this->bailPaid = $this->getBailPaid() + $bailPaid; 
-		$this->bailPaidTotal = $this->getBailPaidTotal() + $bailPaid; 
-	}
-	public function addBailCharged($bailCharged) 
-	{  
-		$this->bailCharged = $this->getBailCharged() + $bailCharged; 
-		$this->bailChargedTotal = $this->getBailChargedTotal() + $bailCharged; 
-	}
-	public function addBailAdjusted($bailAdjusted)  
-	{  
-		$this->bailAdjusted = $this->getBailAdjusted() + $bailAdjusted; 
-		$this->bailAdjustedTotal = $this->getBailAdjustedTotal() + $bailAdjusted; 
 	}
 	
 	// push a single chage onto the charge array
@@ -1280,10 +1258,11 @@ class Docket
 		
 		// write the charges to the database
 		$this->writeChargesToDatabase($db, $caseID);
-/*		
+		
 		// write the fines and costs to the database		
-		$this->writeFinesCostsToDatabase($db, $caseID);		
-*/
+		$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostGeneric(), 0);
+		$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostTotal(), 1);
+
 	}
 
 	// @return the id of the defendant just inserted into the database
@@ -1420,7 +1399,48 @@ class Docket
 				die('Could not add case-charge to the DB:' . mysql_error());
 		
 		}
+	}
+	
+	// @return the id of the arresting agency just inserted into the database (or found in the database)
+	// @param $db - the database handle
+	// @param $caseID - the id of the case that we are writing charges for
+	// @param $fineCostArray is the array that we are looping over.  It is the generic costs or the total costs
+	// @param $isTotal is set to 0 for generic costs and 1 otherwise
+	public function writeFinesCostsToDatabase($db, $caseID, $fineCostArray, $isTotal)
+	{
+		// iterate over each charge on the fines/costs array passed in
+		foreach ($fineCostArray as $finesCosts)
+		{
 		
+			// look up the fine name first.  If we find the fine name in the DB, then return the fineID; if not, then insert it
+			$fineID = $this->checkInDB($db, "FinesCosts", "fineName", $finesCosts[0], null, null, "id");
+		
+			// $id will only equal 0 if there is no fine with this name in the DB
+			// if the ID is 0, then we start by adding the fine to the fine table
+			if ($fineID == 0)
+			{
+				 //print "\nInserting new fine: " . $finesCosts[0];
+				$sql = "INSERT INTO FinesCosts (`fineName`) VALUES ('" . mysql_real_escape_string($finesCosts[0]) . "')";
+
+				 //print "\n" . $sql; 
+			
+				$result = mysql_query($sql, $db);
+				if (!$result) 
+					die('Could not add fine to the DB:' . mysql_error());
+			
+				$fineID = mysql_insert_id();
+			}
+
+			// now that we have our ID, add the actual fine to the database
+			$sql = "INSERT INTO CaseFines (`caseID`, `costFineID`, `assessment`, `payment`, `adjustment`, `non-monetary`, `total`, `isTotal`) VALUES ('$caseID', '$fineID', '$finesCosts[1]', '$finesCosts[2]', '$finesCosts[3]', '$finesCosts[4]', '$finesCosts[5]', '$isTotal')";
+
+			//print "\n" . $sql; 
+		
+			$result = mysql_query($sql, $db);
+			if (!$result) 
+				die('Could not add case-fine to the DB:' . mysql_error());
+		
+		}
 		
 		
 	}

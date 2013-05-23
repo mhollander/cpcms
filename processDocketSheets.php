@@ -6,12 +6,25 @@ require_once("Docket.php");
 // foreach dir
 // open dir
 // for each file
-$file = $docketDir . "2010\\51\\CP\\1000\\CP-51-CR-0000011-2010.pdf";
-$file = $docketDir . "2009\\01\\CR\\1000\\CP-01-CR-0000012-2009.pdf";
+//$file = $docketDir . "2010\\51\\CP\\1000\\CP-51-CR-0000011-2010.pdf";
+//$file = $docketDir . "2009\\01\\CR\\1000\\CP-01-CR-0000012-2009.pdf";
 
-getAndProcessFiles($GLOBALS['docketDir']);
-//processDocket($file);
+$processDir = $GLOBALS['docketDir'];
 
+$options = getopt("d::h::");
+
+if (!empty($options["h"]))
+{
+	print "Usage: php processDocketSheets.php [-d\"<directory name>\"] [-h]\n";
+	print "-d should be followed by a directory name where processing can start\n";
+	print "-h shows this message\n";
+	exit;
+}
+
+if (!empty($options["d"]))
+	$processDir = $options["d"];
+	
+getAndProcessFiles($processDir);
 
 function getAndProcessFiles($dir)
 {
@@ -49,14 +62,14 @@ function processDocket($file)
 		{
 			// if this is a regular docket sheet, use the regular parsing function
 			$docket->readArrestRecord($thisDocket);
+		
+			$docket->writeDocketToDatabase($GLOBALS['db']);
+		
+			if($GLOBALS['debug'])
+				$docket->simplePrint();
+			else
+				print "\n" . $docket->getDocketNumber();
 		}
-		
-		$docket->writeDocketToDatabase($GLOBALS['db']);
-		
-		if($GLOBALS['debug'])
-			$docket->simplePrint();
-		else
-			print "\n" . $docket->getDocketNumber();
 	}
 }
 
