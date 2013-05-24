@@ -183,7 +183,7 @@ class Docket
 	
 	// if this fails, then we are in an overflow line (if there is a $ or a CPCMS on the line, then it is not a continuation of our line)
 	protected static $finesTotalOverflowNegativeSearch = "(\\$|CPCMS|AOPC 9082)";
-Criminal Conspiracy Engaging - Theft By
+
 	// this will find any fines/costs line, including the ones above.  Before using it, test the line for a ":"; if it contains
 	// an ":", then we don't want to match the line.
 	protected static $genericFineCostSearch = "/\s*(.+)\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})/";
