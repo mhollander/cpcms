@@ -106,7 +106,7 @@ class Docket
 	# What a crock!  I can't figure out a way around this
 	protected static $aliasNameStartSearch = "/^Alias Name/"; // \r?\n(?:(^.+)\r?\n)(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?(?:(^.+)\r?\n)?/m"; 
 	protected static $aliasNameEndSearch = "/CASE PARTICIPANTS/";
-	protected static $endOfPageSearch = "/CPCMS 9082/";
+	protected static $endOfPageSearch = "/(CPCMS 9082|AOPC 9082)/";
 	
 	// there are two special judge situations that need to be covered.  The first is that MDJ dockets sometimes say
 	// "magisterial district judge xxx".  In that case, there could be overflow to the next line.  We want to capture that
@@ -183,7 +183,7 @@ class Docket
 	
 	// if this fails, then we are in an overflow line (if there is a $ or a CPCMS on the line, then it is not a continuation of our line)
 	protected static $finesTotalOverflowNegativeSearch = "(\\$|CPCMS|AOPC 9082)";
-
+Criminal Conspiracy Engaging - Theft By
 	// this will find any fines/costs line, including the ones above.  Before using it, test the line for a ":"; if it contains
 	// an ":", then we don't want to match the line.
 	protected static $genericFineCostSearch = "/\s*(.+)\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})\s+(-?\\$[\d\,]+\.\d{2})/";
@@ -1487,7 +1487,7 @@ class Docket
 		$result = mysql_query($sql, $db);
 		if (!$result) 
 			die('Could not check if the item existed in table $table in the DB:' . mysql_error());
-		
+	
 		// print "\n$sql";
 		
 		// if there is a row already, then set the person ID, return true, and get out
@@ -1495,9 +1495,7 @@ class Docket
 			return mysql_result($result,0);
 		else
 			return 0;
-	}
-
-	
+	}	
 
 	// @return the id of the arrest just inserted into the database
 	// @param $defendantID - the id of the defendant that this arrest concerns
@@ -1514,48 +1512,6 @@ class Docket
 				die('Could not add the arrest to the DB:' . mysql_error());
 		return mysql_insert_id();
 	}
-/*	
-	// @return the id of the charge just inserted into the database
-	// @param $defendantID - the id of the defendant that this arrest concerns
-	// @param $db - the database handle
-	// @param $charge - the charge that we are inserting
-	// @param $arrestID - the id of the arrest that we are innserting
-	public function writeChargeToDatabase($charge, $arrestID, $defendantID, $expungementID, $db)
-	{
-		$sql = "INSERT INTO charge (`arrestID`, `defendantID`, `expungementID`, `chargeName`, `disposition`, `codeSection`, `dispDate`, `isARD`, `isExpungeableNow`, `grade`, `arrestDate`) VALUES ('$arrestID', '$defendantID', $expungementID, '" . mysql_real_escape_string($charge->getChargeName()) . "', '" . mysql_real_escape_string($charge->getDisposition()) . "', '" . $charge->getCodeSection() . "', '" . dateConvert($charge->getDispDate()) . "', '" . $charge->getIsARD() . "', '" . $charge->getIsRedactable() . "', '" . $charge->getGrade() . "', '" . dateConvert($this->getArrestDate()) . "')";
-		
-		$result = mysql_query($sql, $db);
-		if (!$result) 
-		{
-			if ($GLOBALS['debug'])
-				die('Could not add the arrest to the DB:' . mysql_error());
-			else
-				die('Could not add the arrest to the DB');
-		}
-		return mysql_insert_id();
-	}
-	
-	// @return the expungementID
-	// @param $defendantID - the id of the defendant that this arrest concerns
-	// @param $db - the database handle
-	// @param $arrestID - the id of the arrest that we are innserting
-	// @param $chargeID - the id of the charge that we are innserting
-	public function writeExpungementDataToDatabase($arrestID, $defendantID, $attorneyID, $db)
-	{
-		$sql  = "INSERT INTO  expungement (`arrestID`, `defendantID`, `userid`, `isExpungement`, `isRedaction`, `isSummaryExpungement`, `timestamp`) VALUES ('$arrestID',  '$defendantID', '$attorneyID', '" . $this->isArrestExpungement() . "', '" . $this->isArrestRedaction() . "', '" . $this->isArrestSummaryExpungement ."', CURRENT_TIMESTAMP)";
-
-		$result = mysql_query($sql, $db);
-		if (!$result) 
-		{
-			if ($GLOBALS['debug'])
-				die('Could not add the expungement to the DB:' . mysql_error());
-			else
-				die('Could not add the expungement to the DB');
-		}
-		return mysql_insert_id();
-	
-	}
-*/
 
 
 	

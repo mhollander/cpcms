@@ -122,7 +122,7 @@ DROP TABLE IF EXISTS `charges`;
 CREATE TABLE IF NOT EXISTS `charges` (
   `id` smallint(6) NOT NULL AUTO_INCREMENT,
   `chargeName` varchar(75) NOT NULL COMMENT 'The name of the charge, like "Aggravated Assault"',
-  `codeSection` varchar(15) NOT NULL COMMENT 'The code section, like 32 PA s 3432',
+  `codeSection` varchar(25) NOT NULL COMMENT 'The code section, like 32 PA s 3432',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=48 ;
 
