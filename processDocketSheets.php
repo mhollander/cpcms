@@ -50,7 +50,7 @@ function processDocket($file)
 	system($command, $ret);
 	if($GLOBALS['debug'])
 		print "\nThe pdftotext command: $command \n";
-print "\nThe pdftotext command: $command \n";
+
 	if ($ret == 0)
 	{
 		//print $filename . "<br />";
