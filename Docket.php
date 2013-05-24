@@ -124,7 +124,8 @@ class Docket
 	
 	// regexes to get information about the attorneys
 	protected static $attorneyInfoHeaderSearch = "/\s*COMMONWEALTH INFORMATION\s+ATTORNEY INFORMATION/";
-	protected static $attorneyInfoSearch = "/Name:\s+(.+)\s+Name:\s+(.+)\s*/";
+	protected static $attorneyInfoSearch = "/Name:\s+(.+?)(\s{2,}Name:\s+(.+)$|\s$)/";
+	protected static $entriesSearch = "/ENTRIES/";
 	// the idea in this next search is that we have two columns: one for the P and one for the D; they are separated by a lot of 
 	// whitespace.  We want to grab both pieces of info and store it somewhere.  Here are variations on what we might see:
 /*
@@ -152,7 +153,7 @@ class Docket
                      Office, Esq.                                                                 Private 
                      Prosecutor                                                Supreme Court No:           032886 
 */
-	protected static $attorneyInfoExtraSearch = "/\s*(.+?)(?=\s\s)\s{2,}(.+)\s*/";
+	protected static $attorneyInfoExtraSearch = "/\s*(.+?)((?=\s\s)\s{2,}(.+)\s*|\s$)/";
 	// these match match Supreme Court No is on the P or D side
 	protected static $supremeCourtLeftSearch = "/^\s*Supreme Court No:\s+(\d*).*/";
 	protected static $supremeCourtRightSearch = "/\S+\s+Supreme Court No:\s+(\d*).*/";
@@ -519,6 +520,9 @@ class Docket
 				// as long as we haven't gotten the left section
 				while (!preg_match(self::$supremeCourtLeftSearch, $arrestRecordFile[$i], $matches))
 				{
+					// this means that there was some problem with the way the attorney was entered
+					if (preg_match(self::$entriesSearch, $arrestRecordFile[$i]))
+						break;
 					if (preg_match(self::$attorneyInfoExtraSearch, $arrestRecordFile[$i], $aMatches))
 						$pInformation[] = trim($aMatches[1]);
 					$i++;
@@ -532,20 +536,39 @@ class Docket
 				$i = $line_num+1;
 				$dInformation = array();
 				// grab the name of the agency/attorney
-				if (preg_match(self::$attorneyInfoSearch, $arrestRecordFile[$i], $matches))
-					$dInformation[] = trim($matches[2]);
+				if (preg_match(self::$attorneyInfoSearch, $arrestRecordFile[$i], $matches) && !empty($matches[3]))
+					$dInformation[] = trim($matches[3]);
 				$i++;
-				// as long as we haven't gotten the left section
+								
+				$hasAttorneyInfo = TRUE;
+				// as long as we haven't finished looking through the right section (which ends with Supreme Court ID)
 				while (!preg_match(self::$supremeCourtRightSearch, $arrestRecordFile[$i], $matches))
 				{
-					if (preg_match(self::$attorneyInfoExtraSearch, $arrestRecordFile[$i], $aMatches))
-						$dInformation[] = trim($aMatches[2]);
+					// this will only be hit if we are int he strange case where there is a problem with the attorney information
+					if (preg_match(self::$entriesSearch, $arrestRecordFile[$i]))
+					{
+						$hasAttorneyInfo = FALSE;
+						break;
+					}
+					if (preg_match(self::$attorneyInfoExtraSearch, $arrestRecordFile[$i], $aMatches) && !empty($aMatches[3]))
+						$dInformation[] = trim($aMatches[3]);
 					$i++;
 				}
 				
-				$this->setDRole(array_pop($dInformation));
-				$this->setDLawyer(implode(" ", $dInformation));
-				$this->setDSupremeCourtNumber(trim($matches[1]));
+				// only insert attorney information for the D if we actually found something
+				if ($hasAttorneyInfo)
+				{
+					$this->setDRole(array_pop($dInformation));
+					$this->setDLawyer(implode(" ", $dInformation));
+					$this->setDSupremeCourtNumber(trim($matches[1]));
+				}
+				else 
+				{
+					$this->setDRole("NA");
+					$this->setDLawyer("NA");
+					$this->setDSupremeCourtNumber("0");
+				}
+					
 
 				// once we find the attorney information, we are done with this search
 				$this->bAttorneyInfo = TRUE;					
