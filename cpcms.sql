@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS `defendant` (
 DROP TABLE IF EXISTS `dispositions`;
 CREATE TABLE IF NOT EXISTS `dispositions` (
   `id` smallint(6) NOT NULL AUTO_INCREMENT,
-  `dispositionName` varchar(30) NOT NULL COMMENT 'The name of the disposition, like "Not Guilty"',
+  `dispositionName` varchar(50) NOT NULL COMMENT 'The name of the disposition, like "Not Guilty"',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=12 ;
 
