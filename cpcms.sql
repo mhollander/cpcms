@@ -28,7 +28,7 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 DROP TABLE IF EXISTS `arrestingagency`;
 CREATE TABLE IF NOT EXISTS `arrestingagency` (
   `id` smallint(6) NOT NULL AUTO_INCREMENT,
-  `agencyName` varchar(30) NOT NULL,
+  `agencyName` varchar(75) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=6 ;
 

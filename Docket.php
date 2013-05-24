@@ -120,7 +120,7 @@ class Docket
 	// ($1 = charge, $2 = disposition, $3 = grade, $4 = code section
 	// explanation: .+? - the "?" means to do a lazy match of .+, so it isn't greedy; I have it twice, the first time
 	// is to match the charge, the second is to match the disposition.  The final part is to match the code section that is violated.
-	protected static $chargesSearch = "/\d\s+\/\s+(.+?)(?=\s\s)\s{2,}(.+?)(?=\s\s)\s{2,}(\w{0,2})\s+(\w{1,2}\s?\247\s?\d+(\-|\247|\w+)*)/";
+	protected static $chargesSearch = "/\d\s+\/\s+(.+?)(?=\s\s)\s{2,}(\w.+?)(?=\s\s)\s{2,}(\w{0,2})\s+(\w{1,2}\s?\247\s?\d+(\-|\247|\w+)*)/";
 	
 	// regexes to get information about the attorneys
 	protected static $attorneyInfoHeaderSearch = "/\s*COMMONWEALTH INFORMATION\s+ATTORNEY INFORMATION/";
@@ -605,8 +605,9 @@ class Docket
 					$dispositionDate = $dispMatch[2];
 				else
 					$dispositionDate = NULL;
-					
+				
 				$charge = new Charge($charge, $matches[2], trim($matches[4]), trim($dispositionDate), trim($matches[3]), $this->finalDisposition);
+				
 				$this->addCharge($charge);
 			}
 			
