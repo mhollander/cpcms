@@ -118,9 +118,8 @@ class Docket
 	protected static $nameSearch = "/^Defendant\s+(.*), (.*)/";
 
 	// ($1 = charge, $2 = disposition, $3 = grade, $4 = code section
-	// explanation: .+? - the "?" means to do a lazy match of .+, so it isn't greedy; I have it twice, the first time
-	// is to match the charge, the second is to match the disposition.  The final part is to match the code section that is violated.
-	protected static $chargesSearch = "/\d\s+\/\s+(.+?)(?=\s\s)\s{2,}(\w.+?)(?=\s\s)\s{2,}(\w{0,2})\s+(\w{1,2}\s?\247\s?\d+(\-|\247|\w+)*)/";
+	// explanation: .+? - the "?" means to do a lazy match of .+, so it isn't greedy.  THe match of 12+ spaces handles the large space after the charges and after the disposition before the next line.  The final part is to match the code section that is violated.	
+	protected static $chargesSearch = "/\d\s+\/\s+(.+)\s{12,}(\w.+?)(?=\s\s)\s{12,}(\w{0,2})\s+(\w{1,2}\s?\247\s?\d+(\-|\247|\w+)*)/";
 	
 	// regexes to get information about the attorneys
 	protected static $attorneyInfoHeaderSearch = "/\s*COMMONWEALTH INFORMATION\s+ATTORNEY INFORMATION/";
@@ -596,6 +595,8 @@ class Docket
 					$i++;
 				}
 	
+				// also, knock out any strange multiple space situations in the charge, which comes up sometimes.
+				$charge = preg_replace("/\s{2,}/", " ", $charge);
 			
 				// need to grab the disposition date as well, which is on the next line
 				if (isset($this->dispositionDate))
