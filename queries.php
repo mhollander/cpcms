@@ -32,7 +32,7 @@ function gatherQueries()
 {
 	
 	$queries = array();
-	$queries[] = array("Show number of arrests by zipcode.","SELECT zip, COUNT(*) AS 'Total Arrests' FROM defendant GROUP BY zip ORDER BY zip ASC");
+	$queries[] = array("Show number of arrests by zipcode.","SELECT zip, COUNT(*) AS 'Total Arrests' FROM defendant GROUP BY zip ORDER BY 'Total Arrests' DESC");
 	return $queries;
 }
 
