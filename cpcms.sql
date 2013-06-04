@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS `defendant` (
   `DOB` date NOT NULL,
   `city` varchar(30) DEFAULT NULL,
   `state` varchar(2) DEFAULT NULL,
-  `zip` int(5) DEFAULT NULL,
+  `zip` varchar(5) DEFAULT NULL,
   `aliases` varchar(150) DEFAULT NULL COMMENT 'A list of alias names, separated by a ";"',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=88 ;
