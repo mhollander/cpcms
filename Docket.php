@@ -663,24 +663,6 @@ class Docket
 
 				$this->setCost($this->costGeneric, $costName, trim($matches[2]),  trim($matches[3]), trim($matches[4]), trim($matches[5]), trim($matches[6]));
 			}
-
-			/*
-			else if (preg_match(self::$bailSearch, $line, $matches))
-			{
-				$this->addBailCharged(doubleval(str_replace(",","",$matches[1])));  
-				$this->addBailPaid(doubleval(str_replace(",","",$matches[2])));  // the amount paid
-				$this->addBailAdjusted(doubleval(str_replace(",","",$matches[3])));
-				$this->addBailTotal(doubleval(str_replace(",","",$matches[5])));  // tot final amount, after all adjustments
-			}
-
-			else if (preg_match(self::$costsSearch, $line, $matches))
-			{
-				$this->setCostsCharged(doubleval(str_replace(",","",$matches[1])));  
-				$this->setCostsPaid(doubleval(str_replace(",","",$matches[2])));  // the amount paid
-				$this->setCostsAdjusted(doubleval(str_replace(",","",$matches[3])));
-				$this->setCostsTotal(doubleval(str_replace(",","",$matches[5])));  // tot final amount, after all adjustments
-			}
-			*/
 		}
 	}
 		
@@ -704,148 +686,6 @@ class Docket
 		else
 			return FALSE;
 	}
-
-	// combines the $this and $that. We assume for the purposes of this function that
-	// $this and $that are the same docket number as that was previously checked
-	// @param $that is an Arrest, but obtained from the Summary docket sheet, so it doesn't
-	// have charge information with, just judge, arrest date, etc...
-/*
-	public function combineWithSummary($that)
-	{
-		if ($that->getJudge() != "")
-			$this->setJudge($that->getJudge());
-		if (!isset($this->arrestDate) || $this->getArrestDate() == self::$unknownInfo)
-			$this->setArrestDate($that->getArrestDate());
-		if (!isset($this->dispositionDate) || $this->getDispositionDate() == self::$unknownInfo)
-			$this->setDispositionDate($that->getDispositionDate());
-	}
-*/
-	//gets the first docket number on the array
-	// Compares $this arrest to $that arrest and determines if they are actually part of the same
-	// case.  Two arrests are part of the same case if they have the same OTN or DC number.
-	// If the two arrests are part of the same case, combines them by taking all of the information
-	// from one case and adding it to the other case (unless that information is already there.
-	// It is important to note that you can only combine a CP case with an MC case.  You cannot
-	// two MC cases together without a CP.
-	// @param $that = Arrest to combine with $this
-/*
-	public function combine($that)
-	{
-		
-		// if $this isn't a CP case, then don't combine.  If $that is a CP case, don't combine.
-		if (!$this->isCP() || $that->isCP())
-		{
-			return FALSE;
-		}
-		
-		// return false if we don't find something with the same DC or OTN number
-		if (!$this->compare($that))
-			return FALSE;
-		
-		// if $that (the MC case) is an expungement itself, then we don't want to combine.
-		// If the MC case was an expungement, then no charges will move up from the MC case
-		// to the associated CP case.  This happens in the following situation: 
-		// Person is arrested and charged with three different sets of crimes that show up on
-		// 3 different MC cases.  One of the MC cases is completely resolved at the prelim hearing
-		// and charges are dismissed.  The other two MC cases have "held for court" charges
-		// which are brought up to a CP case.  THe CP case OTN will match all three MC cases, but 
-		// will only have charges from the two MC cases that were "held for court"
-		if ($that->isArrestExpungement())
-			return FALSE;
-		
-		// combine docket numbers
-		$this->setDocketNumber(array_merge($this->getDocketNumber(),$that->getDocketNumber()));
-		
-		// combine charges.  Only include $that charges that are not "held for court"
-		// The reason for this is that held for court charges will already appear on the CP,
-		// they will just appear with a disposition.  We don't want to include held for court
-		// charges and then assume that this isn't an expungement in our later logic.
-		// This is a possible future thing to change.  Perhaps held for court should be put on
-		// And something should be "expungeable" regardless of whether "held for court"
-		// charges are on there.
-		$thatChargesNoHeldForCourt = array();
-		foreach ($that->charges as $charge)
-		{
-			$thatDisp = $charge->getDisposition();
-
-			// note strange use of strpos.  strpos returns the location of the first occurrence of the string
-			// or boolean false.  you have to check with === FALSE b/c the first occurence of the strong could
-			// be position 0 or 1, which would otherwise evaluate to true and false!
-			if (strpos($thatDisp, "Held for Court")===FALSE && strpos($thatDisp, "Waived for Court")===FALSE)
-				$thatChargesNoHeldForCourt[] = $charge;
-		}
-		
-		// if $thatChargesNoHeldForCourt[] has less elements than $that->charges, we know that
-		// some charges were disposed of at the lower court level.  In that case, we need to
-		// add the lower court judges in as well on the expungement sheet.
-		// @todo add judges here
-		$this->setCharges(array_merge($this->getCharges(),$thatChargesNoHeldForCourt));
-		
-		// combine bail amounts.  This isn't used for the petitions, but it is helpful for later
-		// when we print out the overview of bail.  
-		// Generally speaking, an individual could have a bail assessment on an MC case, even if
-		// all charged went to CP court (this would happen if they failed to appear for a hearing
-		// and then later appeared, were sent to CP court, and were tried there.
-		// generally speaking, there are not fines on an MC case that is ultimately combined with
-		// a CP case.
-		$this->setBailChargedTotal($this->getBailChargedTotal()+$that->getBailChargedTotal());
-		$this->setBailTotalTotal($this->getBailTotalTotal()+$that->getBailTotalTotal());
-		$this->setBailAdjustedTotal($this->getBailAdjustedTotal()+$that->getBailAdjustedTotal());
-		$this->setBailPaidTotal($this->getBailPaidTotal()+$that->getBailPaidTotal());
-
-		// set MDJ as "2" if that is an an mdj.  "2" means that this is a case descending from MDJ
-		// also set the mdj number
-		if ($that->getIsMDJ())
-		{
-			$this->setIsMDJ(2);
-			$this->setMDJDistrictNumber($that->getMDJDistrictNumber());
-		}
-		return TRUE;
-	}
-*/
-
-/*
-	// @return a comma separated list of all of the dispositions that are on the "charges" array
-	// @param if redactableOnly is true (default) returns only redactable offenses
-	public function getDispList($redactableOnly=TRUE)
-	{
-		$disposition = "";
-		foreach ($this->getCharges() as $charge)
-		{
-			// if we are only looking for redactable charges, skip this charge if it isn't redactable
-			if ($redactableOnly && !$charge->isRedactable())
-				continue;
-			if ((stripos($disposition,$charge->getDisposition())===FALSE))
-			{
-				if ($disposition != "")
-					$disposition .= ", ";
-				$disposition .= $charge->getDisposition();
-			}
-		}
-		return $disposition;
-	}
-*/	
-
-/*
-	// @param redactableOnly - boolean defaults to false; if set to true, only returns redactable charges
-	// @return a string holding a comma separated list of charges that are in the charges array; 
-	// @return if "redactableOnly" is TRUE, returns only those charges that are expungeable	
-	public function getChargeList($redactableOnly=FALSE)
-	{
-		$chargeList = "";
-		foreach ($this->getCharges() as $charge)
-		{
-			// if we are trying to only get the list of "Expungeable" offenses, then 
-			// continue to the next charge if this charge is not Expungeable
-			if ($redactableOnly && !$charge->isRedactable())
-				continue;
-			if ($chargeList != "")
-				$chargeList .= ", ";
-			$chargeList .= ucwords(strtolower($charge->getChargeName()));
-		}
-		return $chargeList;
-	}
-*/
 	
 	
 	// returns the age based off of the DOB read from the arrest record
@@ -903,219 +743,6 @@ class Docket
 			return FALSE;
 		}
 	}
-/*
-	// returns true if this arrest includes ARD offenses.
-	public function isArrestARDExpungement()
-	{
-		if (isset($this->isARDExpungement))
-			return  $this->getIsARDExpungement();
-		else
-		{
-			foreach ($this->getCharges() as $num=>$charge)
-			{
-				if($charge->isARD())
-				{
-					$this->setIsARDExpungement(TRUE);
-					return TRUE;
-				}
-			}
-			$this->setIsARDExpungement(FALSE);
-			return FALSE;
-		}
-	}
-*/
-
-/*
-	// @function isArrestOver70Expungement() - returns true if the petition is > 70yo and they have been arrest
-	// free for at least the last 10 years.
-	// @param arrests - an array of all of the other arrests that we are comparing this to to see if they are 
-	// 10 years arrest free
-	//@ return TRUE if the conditions above are me; FALSE if not
-	public function isArrestOver70Expungement($arrests, $person)
-	{
-		// if already set, then just return the member variable
-		if (isset($this->isArrestOver70Expungement))
-			return $this->isArrestOver70Expungement;
-			
-		// return false right away if the petition is younger than 70
-		if ($person->getAge() < 70)
-		{
-			$this->setIsArrestOver70Expungement(FALSE);
-			return FALSE;
-		} 	
-
-		// also return false right away if there aren't any charges to actually look at
-		if (count($this->getCharges())==0)
-		{
-			$this->setIsArrestOver70Expungement(FALSE);
-			return FALSE;
-		} 	
-		
-		// do an over 70 exp if at least one is not redactible; if this is a regular exp, just do a regular exp
-		// NOTE: THis may be a problem for HELD FOR COURT charges; keep this in mind
-		if ($this->isArrestExpungement())
-		{
-			$this->setIsArrestOver70Expungement(FALSE);
-			return FALSE;
-		}
-		
-		// at this point we know two things: we are over 70 and we need to get non-redactable charges off of 
-		// the record
-		// Loop through all of the arrests passed in to get the disposition dates or the 
-		// arrest dates if the disposition dates don't exist.  
-		// return false if any of them are within 10 years of today
-
-		$dispDates = array();
-		$dispDates[] = new DateTime($this->getBestDispositionDate());
-		foreach ($arrests as $arrest)
-		{
-			$dispDates[] = new DateTime($arrest->getBestDispositionDate());
-		}
-
-		// look at each dispDate in the array and make sure it was more than 10 years ago
-		$today = new DateTime();
-		foreach ($dispDates as $dispDate)
-		{
-			if (abs(dateDifference($dispDate, $today)) < 10)
-			{
-				$this->setIsArrestOver70Expungement(FALSE);
-				return FALSE;
-			}
-		}
-		
-		// if we got here, it means there are no five year periods of freedom
-		$this->setIsArrestOver70Expungement(TRUE);
-		return TRUE;
-			
-	}
-*/
-
-/*
-	// @function isArrestSummaryExpungement - returns true if this is an expungeable summary 
-	// arrest.  
-	// This is true in a slightly more complicated sitaution than the others.  To be a 
-	// summary expungement a few things have to be true:
-	// 1) This has to be a summary offense, characterized by "SU" in the docket number.
-	// 2) The person must have been found guilty or plead guilty to the charges (if they were
-	// not guilty or dismissed, then there is nothing to worry about - normal expungmenet.
-	// 3) The person must have five years arrest free AFTER the arrest.  This doesn't have to be 
-	// the five years immediately following the arrest nor does it have to be the most recent five
-	// years.  It just has to be five years arrest free at some point post arrest.  
-	// @note - a problem that might come up is if someone has a summary and then is confined in jail
-	// for a long period of time (say 10 years).  This will apear eligible for a summary exp, but
-	// is not.
-	// @param arrests - an array of all of the other arrests that we are comparing this too to see
-	// if they are 5 years arrest free
-	// @return TRUE if the conditions above are met; FALSE if not.
-	public function isArrestSummaryExpungement($arrests)
-	{
-		// if already set, then just return the member variable
-		if (isset($this->isArrestSummaryExpungement))
-			return $this->isArrestSummaryExpungement;
-			
-		// return false right away if this is not a summary arrest
-		if (!$this->getIsSummaryArrest())
-		{
-			$this->setIsArrestSummaryExpungement(FALSE);
-			return FALSE;
-		} 	
-
-		// also return false right away if there aren't any charges to actually look at
-		if (count($this->getCharges())==0)
-		{
-			$this->setIsArrestSummaryExpungement(FALSE);
-			return FALSE;
-		} 	
-		
-		// loop through all of the charges; only do a summary exp if none are redactible
-		// NOTE: THis may be a problem for HELD FOR COURT charges; keep this in mind
-		// NOTE: Is it possible that someone has some not guilty and some guilty for summary charges?
-		foreach ($this->getCharges() as $num=>$charge)
-		{
-			if($charge->isRedactable())
-			{
-				$this->setIsArrestSummaryExpungement(FALSE);
-				return FALSE;
-			}
-		}
-			
-		// at this point we know two things: summary arrest and the charges are all guilties.
-		// now we need to check to see if they are arrest free for five years.	
-		// Loop through all of the arrests passed in to get the disposition dates or the 
-		// arrest dates if the disposition dates don't exist.  
-		// Drop dates that are before this date.
-		// Make a sorted array of all of the dates and find the longest gap.
-		$thisDispDate = new DateTime($this->getBestDispositionDate());
-		$dispDates = array();
-
-		$dispDates[] = $thisDispDate;
-		$dispDates[] = new DateTime(); // add today onto the array as well
-		foreach ($arrests as $arrest)
-		{
-			$thatDispDate = new DateTime($arrest->getBestDispositionDate());
-			// if the disposition date of that arrest was before this arrest, ignore it
-			if ($thatDispDate < $thisDispDate)
-				continue;
-			else
-				$dispDates[] = $thatDispDate;
-		}
-		// sort array
-		asort($dispDates);
-
-		// sort through the first n-1 members of the dateArray and compare them to the next
-		// item in the array to see if there is more than 5 years between them
-		for ($i=0; $i<(sizeof($dispDates)-1); $i++)
-		{
-			if (abs(dateDifference($dispDates[$i+1], $dispDates[$i])) >= 5)
-			{
-				$this->setIsArrestSummaryExpungement(TRUE);
-				return TRUE;
-			}
-		}
-		
-		// if we got here, it means there are no five year periods of freedom
-		$this->setIsArrestSummaryExpungement(FALSE);
-		return FALSE;
-			
-	}
-*/
-/*
-	// returns true if this is an expungeable arrest.  this is true if no charges are guilty
-	// or guilty plea or held for court.
-	public function isArrestExpungement()
-	{
-		if (isset($this->isExpungement))
-			return  $this->getIsExpungement();
-
-		else
-		{
-			foreach ($this->getCharges() as $num=>$charge)
-			{
-				// the quirky case where on a CP, the held for court charges are listed from the MC
-				// case.
-				if ($this->isCP() && $charge->getDisposition() == "Held for Court")
-					continue;
-				if(!$charge->isRedactable())
-				{
-					$this->setIsExpungement(FALSE);
-					return FALSE;
-				}
-			}
-			
-			// deal with the quirky case where there are no charges on the array.  This happens
-			// rarely where there is a docket sheet that lists charges, but doesn't list
-			// dispositions at all.
-			if (count($this->getCharges()) == 0)
-			{
-					$this->setIsExpungement(FALSE);
-					return FALSE;
-			}
-			
-			$this->setIsExpungement(TRUE);
-			return TRUE;
-		}
-	}
-*/
 
 	// returns true if the first docket number starts with "CP"
 	public function isCP()
@@ -1136,90 +763,6 @@ class Docket
 		}
 	}
 
-/*	
-	// returns true if this is a redactable offense.  this is true if there are charges that are NOT
-	// guilty or guilty plea or held for court.  returns true for expungements as well.
-	public function isArrestRedaction()
-	{
-		if (isset($this->isRedaction))
-			return  $this->getIsRedaction();
-
-		else
-		{
-			foreach ($this->getCharges() as $charge)
-			{
-				// if we don't match Guilty|Guilty Plea|Held for court, this is redactable
-				if ($charge->isRedactable())
-				{
-					$this->setIsRedaction(TRUE);
-					return TRUE;
-				}
-			}
-			// if we ever get here, we have no redactable offenses, so return false
-			$this->setIsRedaction(FALSE);
-			return FALSE;
-		}
-	}
-*/
-
-/*
-	// return true if any of the charges are held for court.  this means we are ripe for 
-	// consolodating with another arrest
-	public function isArrestHeldForCourt()
-	{
-		if (isset($this->isHeldForCourt))
-				return  $this->getIsHeldForCourt();
-		else
-		{
-			$heldForCourtMatch = "/[Held for Court|Waived for Court]/";
-			foreach ($this->getCharges() as $num=>$charge)
-			{
-				// if we match Held for court, setheldforcourt = true
-				if (preg_match($heldForCourtMatch,$charge->getDisposition()))
-				{
-					$this->setIsHeldForCourt(TRUE);
-					return TRUE;
-				}
-			}
-			// if we ever get here, we have no heldforcourt offenses, so return false
-			$this->setIsHeldForCourt(FALSE);
-			return FALSE;
-	
-		}
-	}
-*/
-
-/*	
-	// @returns an associative array with court information based on the county name
-	public function getCourtInformation($db)
-	{
-		// $sql is going to be different based on whether this is an mdj case or a regular case
-		$table = "court";
-		$column = "county";
-		$value = $this->getCounty();
-		
-		if ($this->getIsMDJ() == 1)
-		{
-			$table = "mdjcourt";
-			$column = "district";
-			$value = $this->getMDJDistrictNumber();
-		}
-
-		// sql statements are case insensitive by default		
-		$query = "SELECT * FROM $table WHERE $table.$column='$value'";
-		$result = mysql_query($query, $db);
-
-		if (!$result) 
-		{
-			if ($GLOBALS['debug'])
-				die('Could not get the court information from the DB:' . mysql_error());
-			else
-				die('Could not get the court Information from the DB');
-		}
-		$row = mysql_fetch_assoc($result);
-		return $row;
-	}
-*/	
 		
 	public function simplePrint()
 	{
@@ -1303,13 +846,12 @@ class Docket
 				$aliasesDelimited .= ";$name";
 		}
 	
-		$sql = "INSERT INTO Defendant (`firstName`, `lastName`, `DOB`, `city`, `state`, `zip`, `aliases`) VALUES ('" . mysql_real_escape_string($this->getFirstName()) . "', '" . mysql_real_escape_string($this->getlastName()) . "', '" . dateConvert($this->getDOB()) . "', '" . mysql_real_escape_string($this->getCity()) . "', '" . mysql_real_escape_string($this->getState()) . "', '" . mysql_real_escape_string($this->getZip()) . "', '" . mysql_real_escape_string($aliasesDelimited) . "')";
+		$sql = "INSERT INTO Defendant (`firstName`, `lastName`, `DOB`, `city`, `state`, `zip`, `aliases`) VALUES ('" . $db->real_escape_string($this->getFirstName()) . "', '" . $db->real_escape_string($this->getlastName()) . "', '" . dateConvert($this->getDOB()) . "', '" . $db->real_escape_string($this->getCity()) . "', '" . $db->real_escape_string($this->getState()) . "', '" . $db->real_escape_string($this->getZip()) . "', '" . $db->real_escape_string($aliasesDelimited) . "')";
 		
-		$result = mysql_query($sql, $db);
-		if (!$result) 
-			die('Could not add defendant to the DB:' . mysql_error());
+		if (!$db->query($sql))
+			die('Could not add the defendant to the DB:' . $db->error);
 
-		return mysql_insert_id();
+		return $db->insert_id;
 	}
 	
 	// @return the id of the attorney just inserted into the database (or found in the database)
@@ -1326,15 +868,14 @@ class Docket
 		if ($id == 0)
 		{
 			//print "\nInserting new attorney: $name";
-			$sql = "INSERT INTO Attorney (`attorneyName`, `role`, `supremeCourtID`) VALUES ('" . mysql_real_escape_string($name) . "', '" . mysql_real_escape_string($role) . "', '" . mysql_real_escape_string($barID) . "')";
+			$sql = "INSERT INTO Attorney (`attorneyName`, `role`, `supremeCourtID`) VALUES ('" . $db->real_escape_string($name) . "', '" . $db->real_escape_string($role) . "', '" . $db->real_escape_string($barID) . "')";
 
 			//print "\n" . $sql; 
 			
-			$result = mysql_query($sql, $db);
-			if (!$result) 
-				die('Could not add defendant to the DB:' . mysql_error());
+			if (!$db->query($sql))
+				die('Could not add Attorney to the DB:' . $db->error);
 			
-			return mysql_insert_id();
+			return $db->insert_id;
 		
 		}
 		else 
@@ -1348,19 +889,18 @@ class Docket
 		// look up the attorney first.  If we find the attorney, then return the attorney ID; if not, then insert the attorney
 		$id = $this->checkInDB($db, "ArrestingAgency", "agencyName", $this->getArrestingAgency(), null, null, "id");
 		
-		// $id will only equal 0 if there is no attorney with this name in the DB
+		// $id will only equal 0 if there is no agency with this name in the DB
 		if ($id == 0)
 		{
 			// print "\nInserting new agency: " . $this->getArrestingAgency();
-			$sql = "INSERT INTO ArrestingAgency (`agencyName`) VALUES ('" . mysql_real_escape_string($this->getArrestingAgency()). "')";
+			$sql = "INSERT INTO ArrestingAgency (`agencyName`) VALUES ('" . $db->real_escape_string($this->getArrestingAgency()). "')";
 
 			// print "\n" . $sql; 
 			
-			$result = mysql_query($sql, $db);
-			if (!$result) 
-				die('Could not add agency to the DB:' . mysql_error());
+			if (!$db->query($sql))
+				die('Could not add agency to the DB:' . $db->error);
 			
-			return mysql_insert_id();
+			return $db->insert_id;
 		
 		}
 		else 
@@ -1384,15 +924,14 @@ class Docket
 			if ($chargeid == 0)
 			{
 			//	 print "\nInserting new charge: " . $charge->getChargeName();
-				$sql = "INSERT INTO Charges (`chargeName`, `codeSection`) VALUES ('" . mysql_real_escape_string($charge->getChargeName()). "', '" . mysql_real_escape_string($charge->getCodeSection()). "')";
+				$sql = "INSERT INTO Charges (`chargeName`, `codeSection`) VALUES ('" . $db->real_escape_string($charge->getChargeName()). "', '" . $db->real_escape_string($charge->getCodeSection()). "')";
 
 				 // print "\n" . $sql; 
 			
-				$result = mysql_query($sql, $db);
-				if (!$result) 
-					die('Could not add charge to the DB:' . mysql_error());
+				if (!$db->query($sql))
+					die('Could not add charge to the DB:' . $db->error);
 			
-				$chargeid = mysql_insert_id();
+				$chargeid = $db->insert_id;
 			}
 			
 			// next, check to see if the disposition is in the database
@@ -1403,25 +942,22 @@ class Docket
 			if ($dispositionID == 0)
 			{
 				// print "\nInserting new disposition: " . $charge->getDisposition();
-				$sql = "INSERT INTO Dispositions (`dispositionName`) VALUES ('" . mysql_real_escape_string($charge->getDisposition()). "')";
+				$sql = "INSERT INTO Dispositions (`dispositionName`) VALUES ('" . $db->real_escape_string($charge->getDisposition()). "')";
 
 				 // print "\n" . $sql; 
+				if (!$db->query($sql)) 
+					die('Could not add disposition to the DB:' . $db->error);
 			
-				$result = mysql_query($sql, $db);
-				if (!$result) 
-					die('Could not add disposition to the DB:' . mysql_error());
-			
-				$dispositionID = mysql_insert_id();
+				$dispositionID = $db->insert_id;
 			}
 		
 			// now that we have all of our IDs, add the actual charge to the database
-			$sql = "INSERT INTO CaseCharges (`caseID`, `chargeID`, `dispositionID`, `grade`, `dispDate`, `isFinalDisposition`) VALUES ('$caseID', '$chargeid', '$dispositionID', '" . mysql_real_escape_string($charge->getGrade()). "', '" . dateConvert($charge->getDispDate()) . "', '" . (int)$charge->getFinalDisposition(). "')";
+			$sql = "INSERT INTO CaseCharges (`caseID`, `chargeID`, `dispositionID`, `grade`, `dispDate`, `isFinalDisposition`) VALUES ('$caseID', '$chargeid', '$dispositionID', '" . $db->real_escape_string($charge->getGrade()). "', '" . dateConvert($charge->getDispDate()) . "', '" . (int)$charge->getFinalDisposition(). "')";
 
 			//print "\n" . $sql; 
 		
-			$result = mysql_query($sql, $db);
-			if (!$result) 
-				die('Could not add case-charge to the DB:' . mysql_error());
+			if (!$db->query($sql)) 
+				die('Could not add case-charge to the DB:' . $db->error);
 		
 		}
 	}
@@ -1445,15 +981,13 @@ class Docket
 			if ($fineID == 0)
 			{
 				 //print "\nInserting new fine: " . $finesCosts[0];
-				$sql = "INSERT INTO FinesCosts (`fineName`) VALUES ('" . mysql_real_escape_string($finesCosts[0]) . "')";
+				$sql = "INSERT INTO FinesCosts (`fineName`) VALUES ('" . $db->real_escape_string($finesCosts[0]) . "')";
 
 				 //print "\n" . $sql; 
+				if (!$db->query($sql)) 
+					die('Could not add fine to the DB:' . $db->error);
 			
-				$result = mysql_query($sql, $db);
-				if (!$result) 
-					die('Could not add fine to the DB:' . mysql_error());
-			
-				$fineID = mysql_insert_id();
+				$fineID = $db->insert_id;
 			}
 
 			// now that we have our ID, add the actual fine to the database
@@ -1461,9 +995,8 @@ class Docket
 
 			//print "\n" . $sql; 
 		
-			$result = mysql_query($sql, $db);
-			if (!$result) 
-				die('Could not add case-fine to the DB:' . mysql_error());
+			if (!$db->query($sql)) 
+				die('Could not add case-fine to the DB:' . $db->error);
 		
 		}
 		
@@ -1471,7 +1004,7 @@ class Docket
 	}
 
 	// checks to see if an item is in the specified table in the db
-	// if it is, return the row number; if not, return 0
+	// if it is, return the row id; if not, return 0
 	// @return 0 if there is nothing in the DB and the $fieldSought otherwise
 	// @param $db the database handle
 	// @param $table - the table to search in
@@ -1482,21 +1015,27 @@ class Docket
 	// @param $fieldSought - the field we want returned if this is not a unique entry
 	public function checkInDB($db, $table, $field, $value, $field2, $value2, $fieldSought)
 	{
-		$sql = "SELECT id FROM $table WHERE $field='" . mysql_real_escape_string($value) . "'";
+		$sql = "SELECT id FROM $table WHERE $field='" . $db->real_escape_string($value) . "'";
 		if (!empty($field2) && !empty($value2))
-			$sql .= " AND $field2='" . mysql_real_escape_string($value2) . "'";
+			$sql .= " AND $field2='" . $db->real_escape_string($value2) . "'";
 
-		$result = mysql_query($sql, $db);
-		if (!$result) 
-			die('Could not check if the item existed in table $table in the DB:' . mysql_error());
+		if (!($result = $db->query($sql)))
+			die('Could not check if the item existed in table $table in the DB:' . $db->error);
 	
-		// print "\n$sql";
+		print "\n$sql";
 		
-		// if there is a row already, then set the person ID, return true, and get out
-		if (mysql_num_rows($result)>0)
-			return mysql_result($result,0);
+		// if there is a row, return the ID; otherwise return 0;
+		if ($result->num_rows > 0)
+		{
+			$r = $result->fetch_row();
+			$result->close();
+			print "\nid: " . $r[0] . "\n";
+			return $r[0];
+		}
 		else
 			return 0;
+		
+		
 	}	
 
 	// @return the id of the arrest just inserted into the database
@@ -1506,13 +1045,12 @@ class Docket
 	// @param $cwAttorneyID - the id of the commonwealth attorney
 	public function writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID, $arrestingAgencyID)
 	{
-		$sql = "INSERT INTO `Case` (`docket`, `crossCourtDocket`, `lowerCourtDocket`, `OTN`, `DC`, `dateFiled`, `arrestDate`, `complaintDate`, `arrestingOfficer`, `arrestingAgencyID`, `initialAuthority`, `finalAuthority`, `judgeAssigned`, `county`, `defendantID`, `CWAttorneyID`, `defAttorneyID`) VALUES ('" . mysql_real_escape_string($this->getDocketNumber()) ."', '" . mysql_real_escape_string($this->getCrossCourtDocket()) ."', '" . mysql_real_escape_string($this->getLowerCourtDocket()) ."', '" . $this->getOTN() . "', '" . $this->getDC() . "', '" . dateConvert($this->getDateFiled()) . "', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getComplaintDate()) . "', '" . mysql_real_escape_string($this->getArrestingOfficer()) . "', '" . $arrestingAgencyID . "', '" . mysql_real_escape_string($this->getInitialIssuingAuthority()) . "', '" . mysql_real_escape_string($this->getFinalIssuingAuthority()) . "', '" . mysql_real_escape_string($this->getJudgeAssigned()) . "', '" . mysql_real_escape_string($this->getCounty()) . "', '" . $defendantID . "', '" . $cwAttorneyID . "', '" . $defAttorneyID . "')";
+		$sql = "INSERT INTO `Case` (`docket`, `crossCourtDocket`, `lowerCourtDocket`, `OTN`, `DC`, `dateFiled`, `arrestDate`, `complaintDate`, `arrestingOfficer`, `arrestingAgencyID`, `initialAuthority`, `finalAuthority`, `judgeAssigned`, `county`, `defendantID`, `CWAttorneyID`, `defAttorneyID`) VALUES ('" . $db->real_escape_string($this->getDocketNumber()) ."', '" . $db->real_escape_string($this->getCrossCourtDocket()) ."', '" . $db->real_escape_string($this->getLowerCourtDocket()) ."', '" . $this->getOTN() . "', '" . $this->getDC() . "', '" . dateConvert($this->getDateFiled()) . "', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getComplaintDate()) . "', '" . $db->real_escape_string($this->getArrestingOfficer()) . "', '" . $arrestingAgencyID . "', '" . $db->real_escape_string($this->getInitialIssuingAuthority()) . "', '" . $db->real_escape_string($this->getFinalIssuingAuthority()) . "', '" . $db->real_escape_string($this->getJudgeAssigned()) . "', '" . $db->real_escape_string($this->getCounty()) . "', '" . $defendantID . "', '" . $cwAttorneyID . "', '" . $defAttorneyID . "')";
 
 		// print $sql;
-		$result = mysql_query($sql, $db);
-		if (!$result) 
-				die('Could not add the arrest to the DB:' . mysql_error());
-		return mysql_insert_id();
+		if (!$db->query($sql)) 
+				die('Could not add the arrest to the DB:' . $db->error);
+		return $db->insert_id;
 	}
 
 

@@ -11,20 +11,22 @@ require_once("Docket.php");
 
 $processDir = $GLOBALS['docketDir'];
 
-$options = getopt("d::h::");
+$options = getopt("d::h::c::");
 
 if (!empty($options["h"]))
 {
 	print "Usage: php processDocketSheets.php [-d\"<directory name>\"] [-h]\n";
 	print "-d should be followed by a directory name where processing can start\n";
+	print "-c Means that you want continuous processing of the contDirectory";
 	print "-h shows this message\n";
 	exit;
 }
 
 if (!empty($options["d"]))
-	$processDir = $options["d"];
+	getAndProcessFiles($options["d"]);;
 	
-getAndProcessFiles($processDir);
+if (!empty ($options["c"]))
+	processContinuous();
 
 function getAndProcessFiles($dir)
 {
@@ -40,6 +42,40 @@ function getAndProcessFiles($dir)
 				else if (fnmatch("*pdf", $file))
 					processDocket($fullFileName);
 			}
+		}
+	}
+}
+
+function processContinuous()
+{	
+	while (	$files = scandir($GLOBALS['contDocketDir']))
+	{
+		if (count($files) > 2) 
+		{
+			// process the top file int he directory
+			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[2];
+			
+			// don't process empty temp files waiting to be downloaded by the curl script
+			if (filesize($file) > 1)
+			{
+				processDocket($file);
+			
+				// and then delete the file so that we don't reprocess it
+				unlink($file);
+			}
+			else
+			{
+				// clear the cache so that when we check again, we don't get a cached filesize result
+				clearstatcache();
+				print ".";
+				sleep(5);
+			}
+
+		}
+		else
+		{
+			print ".";
+			sleep(1);
 		}
 	}
 }
@@ -68,7 +104,7 @@ function processDocket($file)
 			if($GLOBALS['debug'])
 				$docket->simplePrint();
 			else
-				print "\n" . $docket->getDocketNumber();
+				print "\nProcessing " . $docket->getDocketNumber();
 		}
 	}
 }
