@@ -1022,14 +1022,14 @@ class Docket
 		if (!($result = $db->query($sql)))
 			die('Could not check if the item existed in table $table in the DB:' . $db->error);
 	
-		print "\n$sql";
+		//print "\n$sql";
 		
 		// if there is a row, return the ID; otherwise return 0;
 		if ($result->num_rows > 0)
 		{
 			$r = $result->fetch_row();
 			$result->close();
-			print "\nid: " . $r[0] . "\n";
+			//print "\nid: " . $r[0] . "\n";
 			return $r[0];
 		}
 		else

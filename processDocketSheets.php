@@ -56,6 +56,13 @@ function processContinuous()
 			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[2];
 			
 			// don't process empty temp files waiting to be downloaded by the curl script
+			if (filesize($file) < 10)
+			{
+				// try to get another file
+				if (count($files > 3))
+					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[3];
+			}
+
 			if (filesize($file) > 1)
 			{
 				processDocket($file);
@@ -65,6 +72,7 @@ function processContinuous()
 			}
 			else
 			{
+			
 				// clear the cache so that when we check again, we don't get a cached filesize result
 				clearstatcache();
 				print ".";
