@@ -84,7 +84,7 @@ class Docket
 	protected static $countySearch = "/\sof\s(\w+)\sCOUNTY/i";
 	protected static $mdjCountyAndDispositionDateSearch = "/County:\s+(.*)\s+Disposition Date:\s+(.*)/";
 	// $1 = OTN, $2 = CCDocket
-	protected static $OTNSearch = "/OTN:\s+(\D(?:\s)?\d+(?:\-\d)?)\s+Lower Court Docket No:\s+(.*)\s*/";
+	protected static $OTNSearch = "/OTN:\s+(\D(?:\s)?\d+(?:\-\d)?)\s+(?:.*)Lower Court Docket No:\s+(.*)\s*/";
 	protected static $DCSearch = "/District Control Number\s+(\d+)/";
 	protected static $docketSearch = "/Docket Number:\s+((MC|CP)\-\d{2}\-(\D{2})\-\d*\-\d{4})/";
 	protected static $mdjDocketSearch = "/Docket Number:\s+(MJ\-\d{5}\-(\D{2})\-\d*\-\d{4})/";
@@ -810,27 +810,34 @@ class Docket
 	
  	public function writeDocketToDatabase($db)
 	{
-		// write the defendant to the database and get the ID
-		$defendantID = $this->writeDefendantToDatabase($db);
+	
+		// start by checking to see if this docket number is already in the database; if it is, then don't write anything to the DB
+		$id = $this->checkInDB($db, "`Case`", "docket", $this->getDocketNumber(), "", "", "id");
 		
-		// write both attorneys to the database and get the IDs
-		$defAttorneyID = $this->writeAttorneyToDatabase($db, $this->getDLawyer(), $this->getDRole(), $this->getDSupremeCourtNumber());
-		$cwAttorneyID = $this->writeAttorneyToDatabase($db, $this->getCommonwealthAgency(), $this->getCommonwealthRole(), $this->getCommonwealthSupremeCourtNumber());
+		// if ID = 0, that means that this case is not in the DB and we can proceed to add it.  If it doesn't == 0, then we don't want to add the case because it is already in the db
+		if ($id==0)
+		{
+			// write the defendant to the database and get the ID
+			$defendantID = $this->writeDefendantToDatabase($db);
+			
+			// write both attorneys to the database and get the IDs
+			$defAttorneyID = $this->writeAttorneyToDatabase($db, $this->getDLawyer(), $this->getDRole(), $this->getDSupremeCourtNumber());
+			$cwAttorneyID = $this->writeAttorneyToDatabase($db, $this->getCommonwealthAgency(), $this->getCommonwealthRole(), $this->getCommonwealthSupremeCourtNumber());
 
-		// write the arresting agency to the database and get the ID
-		$arrestingAgencyID = $this->writeArrestingAgencyToDatabase($db);
-		
-		// write the main docket information to the database
-		$caseID = $this->writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID, $arrestingAgencyID);
+			// write the arresting agency to the database and get the ID
+			$arrestingAgencyID = $this->writeArrestingAgencyToDatabase($db);
+			
+			// write the main docket information to the database
+			$caseID = $this->writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID, $arrestingAgencyID);
 
-		
-		// write the charges to the database
-		$this->writeChargesToDatabase($db, $caseID);
-		
-		// write the fines and costs to the database		
-		$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostGeneric(), 0);
-		$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostTotal(), 1);
-
+			
+			// write the charges to the database
+			$this->writeChargesToDatabase($db, $caseID);
+			
+			// write the fines and costs to the database		
+			$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostGeneric(), 0);
+			$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostTotal(), 1);
+		}
 	}
 
 	// @return the id of the defendant just inserted into the database
@@ -1015,12 +1022,12 @@ class Docket
 	// @param $fieldSought - the field we want returned if this is not a unique entry
 	public function checkInDB($db, $table, $field, $value, $field2, $value2, $fieldSought)
 	{
-		$sql = "SELECT id FROM $table WHERE $field='" . $db->real_escape_string($value) . "'";
+		$sql = "SELECT $fieldSought FROM $table WHERE $field='" . $db->real_escape_string($value) . "'";
 		if (!empty($field2) && !empty($value2))
 			$sql .= " AND $field2='" . $db->real_escape_string($value2) . "'";
 
 		if (!($result = $db->query($sql)))
-			die('Could not check if the item existed in table $table in the DB:' . $db->error);
+			die('Could not check if the item existed in table ' . $table . ' in the DB:' . $db->error . "\n" . $sql);
 	
 		//print "\n$sql";
 		

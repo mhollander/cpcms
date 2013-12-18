@@ -50,16 +50,45 @@ function processContinuous()
 {	
 	while (	$files = scandir($GLOBALS['contDocketDir']))
 	{
+		$processedfile = false;
+		foreach (range(3, count($files)) as $num)
+		{
+			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[$num-1];
+			if (filesize($file) > 1)
+			{
+				processDocket($file);
+				// and then delete the file so that we don't reprocess it
+				unlink($file);
+				$processedfile = true;
+			}
+			else
+				print ".";
+		}
+		
+		clearstatcache();
+		if (!$processedfile)
+		{
+			print ".";
+			sleep(5);
+		}
+	}
+				
+	/*		
+			{
+				// try to get another file
+				if (count($files) > 3)
+					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[3];
+			}
 		if (count($files) > 2) 
 		{
-			// process the top file int he directory
+			// process the top file in the directory
 			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[2];
 			
 			// don't process empty temp files waiting to be downloaded by the curl script
 			if (filesize($file) < 10)
 			{
 				// try to get another file
-				if (count($files > 3))
+				if (count($files) > 3)
 					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[3];
 			}
 
@@ -86,6 +115,7 @@ function processContinuous()
 			sleep(1);
 		}
 	}
+	*/
 }
 
 function processDocket($file)

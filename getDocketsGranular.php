@@ -123,7 +123,7 @@ function getDocketSheetsByYearCountyType($year, $countyNum, $courtType, $courtLe
 			
 		if ($endOfLine > 500)
 		{
-			$ch->close();
+			//$ch->close();
 			break;
 		}
 			
