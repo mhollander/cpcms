@@ -7,7 +7,7 @@ $debug=FALSE;
 
 // database connection information
 
-$dbPassword = "jnXaa6aFBLUJE76b";
+$dbPassword = "2xj9cpJXt4vBxxmf";
 $dbUser = "cpcms";
 $dbName = "cpcms";
 $dbHost = "localhost";

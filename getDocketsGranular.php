@@ -30,9 +30,6 @@ getDocketsGranular($year, $countyStart, $countyEnd);
 
 function getDocketsGranular($year, $countyStart, $countyEnd)
 {	
-	// MCT or CP court?
-	$prefix = array("MC", "CP");
-	
 	// set the county start and end parameters
 	$c_start = 1;
 	$c_end = 67;

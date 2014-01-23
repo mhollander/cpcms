@@ -11,13 +11,14 @@ require_once("Docket.php");
 
 $processDir = $GLOBALS['docketDir'];
 
-$options = getopt("d::h::c::");
+$options = getopt("d::h::c::a::");
 
 if (!empty($options["h"]))
 {
 	print "Usage: php processDocketSheets.php [-d\"<directory name>\"] [-h]\n";
 	print "-d should be followed by a directory name where processing can start\n";
 	print "-c Means that you want continuous processing of the contDirectory";
+	print "-a Means that you want to process a directory with LOTS of files in it.  This allows use of an iterator rather than reading everything into memory";
 	print "-h shows this message\n";
 	exit;
 }
@@ -27,6 +28,9 @@ if (!empty($options["d"]))
 	
 if (!empty ($options["c"]))
 	processContinuous();
+
+if (!empty ($options["a"]))
+	processLargeDir();
 
 function getAndProcessFiles($dir)
 {
@@ -42,6 +46,22 @@ function getAndProcessFiles($dir)
 				else if (fnmatch("*pdf", $file))
 					processDocket($fullFileName);
 			}
+		}
+	}
+}
+
+function processLargeDir()
+{
+	foreach (new DirectoryIterator($GLOBALS['contDocketDir']) as $fileInfo)
+	{
+		if ($fileInfo->isDot() || $fileInfo->isDir())
+			continue;
+		$file = $fileInfo->getPathname();
+		if (filesize($file) > 1)
+		{
+			processDocket($file);
+			// and then delete the file so that we don't reprocess it
+			unlink($file);
 		}
 	}
 }
