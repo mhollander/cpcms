@@ -48,8 +48,8 @@ function getDocketsGranular($year, $countyStart, $countyEnd)
 		// if this is philly, also get all of the MC dockets, which include CR and SU
 		if ($countyNum == 51)
 		{
-			getDocketSheetsByYearCountyType($year, $countyNum, "CR", "MC");
-			getDocketSheetsByYearCountyType($year, $countyNum, "SU", "MC");
+			#getDocketSheetsByYearCountyType($year, $countyNum, "CR", "MC");
+			#getDocketSheetsByYearCountyType($year, $countyNum, "SU", "MC");
 		}
 	}
 	curl_close($ch);
@@ -65,65 +65,188 @@ function initConnection()
 	return $ch;
 }
 
-// returns something in the form CP-01-CR-0002323-1999
+// returns something in the form CP-01-CR-0002323-2007
 function getDocketNumber($num, $year, $countyNumber, $prefix, $court)
 {
 	return $prefix . "-" . str_pad($countyNumber, 2, "0", STR_PAD_LEFT) . "-" . $court . "-" . str_pad($num, 7, "0", STR_PAD_LEFT) .  "-" . $year;
 }
 
+// returns something in the form CP-51-CR-0100323-1999
+function getPre2007PhillyDocketNumber($month, $day, $counter, $codef, $year, $countyNumber, $prefix, $court)
+{
+	return $prefix . "-" . str_pad($countyNumber, 2, "0", STR_PAD_LEFT) . "-" . $court . "-" . str_pad($month, 2, "0", STR_PAD_LEFT) . str_pad($day, 2, "0", STR_PAD_LEFT) . str_pad($counter, 2, "0", STR_PAD_LEFT) . $codef . "-" . $year;
+}
+
 function getDocketSheetsByYearCountyType($year, $countyNum, $courtType, $courtLevel)
 {
+	// we know that the philly numbering scheme is different pre 2006, so we have to use a different function to get our dockets
+	if ($year < 2007 && $countyNum == 51)
+		getPhillyPre2007($year, $countyNum, $courtType, $courtLevel);
+	else
+	{	
+		// the first docket number to start with and the last to test for possible cases
+		$start = 1;
+		$end = 300000;
+
+		// initialize the curl connection
+		$ch = initConnection();
+		$endOfLine = 0;
+
+		// cycle through each docket in the county
+		foreach (range($start, $end) as $num)
+		{
+			
+			// refresh the curl connection from time to time
+			if ($num % 50 == 0)
+			{
+				curl_close($ch);
+				$ch = initConnection();
+			}
+			
+			$docketNumber = getDocketNumber($num, $year, $countyNum, $courtLevel, $courtType);
+			print "\nDownloading: $docketNumber";
+			
+			$url = $GLOBALS['baseURL'] . $docketNumber;
+			curl_setopt($ch, CURLOPT_URL, $url); 
+			//print $url . "\n";
+			
+			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
+			//print $file;
+			
+			readPDFToFile($ch, $file);
+			
+			// a) checks the filesize; b) if the file size is < 5kb, increment a counter; if it is more than 5kb, reset the counter; c) if the counter is ever > 500, break the loop
+			$filesize = filesize($file);
+			if ($filesize < 4000)
+			{
+				// delete the file so that it doesn't pollute the file system
+				unlink($file);
+				$endOfLine += 1;
+			}
+			else
+				$endOfLine = 0;
+				
+			if ($endOfLine > 500)
+			{
+				//$ch->close();
+				break;
+			}
+				
+		}
+	}
+}
+
+
+function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
+{
+	/* Here are some pre2007 dockets in Philly:
+	CP-51-CR-0126701-1982
+	CP-51-CR-0317591-1980
+	CP-51-CR-0318711-1986
+	CP-51-CR-0800811-1994 - complaint date 8/2/1994
+	CP-51-CR-0836081-1992 - complaint date 8/26/1992
+	
+	So my thought is that the breakdown of the middle numbers is this:
+	aabbccd
+	where aa = a month, ranging from 01-12
+	bb = a day? or is it just a rough day?  It definitely starts at 0 and seems to end, at highest, in the mid-30s, but we can check that
+	cc = a counter that seems to go from 01-99
+	d = a counter that goes from 1-10 for codefefendants
+
+	which means that we need to march through all three sets of numbers to find the docket sheets.  We can't count
+	from 1-300000 like we do for post 2006 cases.  What we have to do is run three separate counters:
+	01-15 or 20
+	00-40 or 50
+	001-999
+	
+	And we don't want to check too many extra numbers since there is 3-4 second delay to download any given case
+	so we will check all three sets of numbers to see if there has been a long period with no new docket downloaded
+	*/
+	
 	// the first docket number to start with and the last to test for possible cases
-	$start = 1;
-	$end = 300000;
 
 	// initialize the curl connection
 	$ch = initConnection();
-	$endOfLine = 0;
+	$codefBlanks = 0;
+	$counterBlanks = 0;
+	$dayBlanks = 0;
+	$monthBlanks = 0;
 
-	// cycle through each docket in the county
-	foreach (range($start, $end) as $num)
+	foreach (range(09,50) as $month)
 	{
-
-		// need to add in detection of county 51 to do both CP and MC
-		// need to add in detection of county to do both MC CR and SU
+		$monthBlanks = 0;
 		
-		// refresh the curl connection from time to time
-		if ($num % 50 == 0)
+		foreach (range(03,60) as $day)
 		{
-			curl_close($ch);
-			$ch = initConnection();
-		}
-		
-		$docketNumber = getDocketNumber($num, $year, $countyNum, $courtLevel, $courtType);
-		print "\nDownloading: $docketNumber";
-		
-		$url = $GLOBALS['baseURL'] . $docketNumber;
-		curl_setopt($ch, CURLOPT_URL, $url); 
-		//print $url . "\n";
-		
-		$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
-		//print $file;
-		
-		readPDFToFile($ch, $file);
-		
-		// a) checks the filesize; b) if the file size is < 5kb, increment a counter; if it is more than 5kb, reset the counter; c) if the counter is ever > 500, break the loop
-		$filesize = filesize($file);
-		if ($filesize < 4000)
-		{
-			// delete the file so that it doesn't pollute the file system
-			unlink($file);
-			$endOfLine += 1;
-		}
-		else
-			$endOfLine = 0;
+			$dayBlanks = 0;
+			$monthBlanks += 1;
+			foreach (range(0,99) as $counter)
+			{
+				$counterBlanks = 0;
+				$dayBlanks +=1;
+				
+				foreach (range(1,9) as $codef)
+				{
+				
+					if ($counter % 50 == 0)
+					{
+						curl_close($ch);
+						$ch = initConnection();
+					}
 			
-		if ($endOfLine > 500)
-		{
-			//$ch->close();
+					$docketNumber = getPre2007PhillyDocketNumber($month, $day, $counter, $codef, $year, $countyNum, $courtLevel, $courtType);
+					print "\nDownloading: $docketNumber" . " $codefBlanks | $counterBlanks | $dayBlanks | $monthBlanks";
+		
+					$url = $GLOBALS['baseURL'] . $docketNumber;
+					curl_setopt($ch, CURLOPT_URL, $url); 
+					//print $url . "\n";
+			
+					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
+					//print $file;
+			
+					readPDFToFile($ch, $file);
+		
+					// a) checks the filesize; b) if the file size is < 4kb, increment a counter; if it is more than 4kb, reset the counter; c) if the counter is ever > 500, break the loop
+					$filesize = filesize($file);
+					if ($filesize < 4000)
+					{
+						// delete the file so that it doesn't pollute the file system
+						unlink($file);
+						$codefBlanks +=1;
+					}
+					else
+					{
+						$codefBlanks = 1;
+						$counterBlanks = 0;
+						$dayBlanks = 0;
+						$monthBlanks = 0;
+					}	
+					if ($codefBlanks > 3)
+					{
+						//$ch->close();
+						$codefBlanks = 0;
+						$counterBlanks += 1;
+						break;
+					}
+				}
+				
+				if ($counterBlanks > 100)
+				{
+					$counterBlanks = 0;
+					$dayBlanks += 1;
+					break;
+				}
+			}
+			
+			if ($dayBlanks > 5)
+			{
+				$dayBlanks = 0;
+				$monthBlanks += 1;
+				break;
+			}
+		}
+		if ($monthBlanks > 2)
 			break;
-		}
-			
 	}
 }
 
