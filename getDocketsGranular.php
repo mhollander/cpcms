@@ -52,7 +52,7 @@ function getDocketsGranular($year, $countyStart, $countyEnd)
 			#getDocketSheetsByYearCountyType($year, $countyNum, "SU", "MC");
 		}
 	}
-	curl_close($ch);
+
 	
 
 }
@@ -134,6 +134,7 @@ function getDocketSheetsByYearCountyType($year, $countyNum, $courtType, $courtLe
 				
 		}
 	}
+	curl_close($ch);
 }
 
 
@@ -167,27 +168,24 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 
 	// initialize the curl connection
 	$ch = initConnection();
-	$codefBlanks = 0;
-	$counterBlanks = 0;
-	$dayBlanks = 0;
-	$monthBlanks = 0;
+	$codefBlanks = $counterBlanks = $dayBlanks = $monthBlanks = 0;
 
-	foreach (range(09,50) as $month)
+	foreach (range(1,50) as $month)
 	{
-		$monthBlanks = 0;
+		$monthBlanks += 1;
 		
-		foreach (range(03,60) as $day)
+		foreach (range(0,60) as $day)
 		{
-			$dayBlanks = 0;
-			$monthBlanks += 1;
+			$dayBlanks += 1;
+
 			foreach (range(0,99) as $counter)
 			{
-				$counterBlanks = 0;
-				$dayBlanks +=1;
+				$counterBlanks += 1;
 				
 				foreach (range(1,9) as $codef)
 				{
-				
+					$codefBlanks += 1;
+					
 					if ($counter % 50 == 0)
 					{
 						curl_close($ch);
@@ -209,31 +207,21 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 					// a) checks the filesize; b) if the file size is < 4kb, increment a counter; if it is more than 4kb, reset the counter; c) if the counter is ever > 500, break the loop
 					$filesize = filesize($file);
 					if ($filesize < 4000)
-					{
-						// delete the file so that it doesn't pollute the file system
 						unlink($file);
-						$codefBlanks +=1;
-					}
 					else
 					{
-						$codefBlanks = 1;
-						$counterBlanks = 0;
-						$dayBlanks = 0;
-						$monthBlanks = 0;
+						$codefBlanks = $counterBlanks = $dayBlanks = $monthBlanks = 0;
 					}	
-					if ($codefBlanks > 3)
+					if ($codefBlanks > 4)
 					{
-						//$ch->close();
 						$codefBlanks = 0;
-						$counterBlanks += 1;
 						break;
 					}
 				}
 				
-				if ($counterBlanks > 100)
+				if ($counterBlanks > 30)
 				{
 					$counterBlanks = 0;
-					$dayBlanks += 1;
 					break;
 				}
 			}
@@ -241,13 +229,13 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 			if ($dayBlanks > 5)
 			{
 				$dayBlanks = 0;
-				$monthBlanks += 1;
 				break;
 			}
 		}
 		if ($monthBlanks > 2)
 			break;
 	}
+	curl_close($ch);
 }
 
 // @param ch - the curl stream
