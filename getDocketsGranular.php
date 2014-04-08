@@ -4,7 +4,7 @@
 
 require_once("config.php");
 
-$options = getopt("y:s::e::h::");
+$options = getopt("y:s::e::i::h::");
 
 if (!empty($options["h"]))
 {
@@ -12,9 +12,12 @@ if (!empty($options["h"]))
 	print "-y The year that you want to process, for example '2010'\n";
 	print "-s Optional. The code for the county that you want to start with (e.g. Philly is 51).  If none is specified, will start with 1\n";
 	print "-e Optional. The code for the county that you want to end with (e.g. Philly is 51).  If none is specified, will end with 67\n";
+	print "-i Optional.  The type of docket you want to ignore.  Can be CP, MC, or SU.  Can include multiple with a '|'.  If none is specified, will default to including all types of dockets.";
 	print "-h shows this message\n";
 	exit;
 }
+
+$ignore = array();
 
 if (!empty($options["y"]))
 	$year = $options["y"];
@@ -26,9 +29,12 @@ if (!empty($options["s"]))
 if (!empty($options["e"]))
 	$countyEnd = $options["e"];
 
-getDocketsGranular($year, $countyStart, $countyEnd);
+if (!empty($options["i"]))
+	$ignore = explode("|", $options["i"]);
 
-function getDocketsGranular($year, $countyStart, $countyEnd)
+getDocketsGranular($year, $countyStart, $countyEnd, $ignore);
+
+function getDocketsGranular($year, $countyStart, $countyEnd, $ignore)
 {	
 	// set the county start and end parameters
 	$c_start = 1;
@@ -43,13 +49,16 @@ function getDocketsGranular($year, $countyStart, $countyEnd)
 	// cycle through each county
 	foreach (range($c_start, $c_end) as $countyNum)
 	{
-		getDocketSheetsByYearCountyType($year, $countyNum, "CR", "CP");
+		if (!in_array("CP", $ignore))
+			getDocketSheetsByYearCountyType($year, $countyNum, "CR", "CP");
 		
 		// if this is philly, also get all of the MC dockets, which include CR and SU
 		if ($countyNum == 51)
 		{
-			#getDocketSheetsByYearCountyType($year, $countyNum, "CR", "MC");
-			#getDocketSheetsByYearCountyType($year, $countyNum, "SU", "MC");
+			if (!in_array("MC", $ignore))
+				getDocketSheetsByYearCountyType($year, $countyNum, "CR", "MC");
+			if (!in_array("SU", $ignore))
+				getDocketSheetsByYearCountyType($year, $countyNum, "SU", "MC");
 		}
 	}
 
@@ -80,7 +89,7 @@ function getPre2007PhillyDocketNumber($month, $day, $counter, $codef, $year, $co
 function getDocketSheetsByYearCountyType($year, $countyNum, $courtType, $courtLevel)
 {
 	// we know that the philly numbering scheme is different pre 2006, so we have to use a different function to get our dockets
-	if ($year < 2007 && $countyNum == 51)
+	if (($year < 2007 && $countyNum == 51) && $courtType != "SU")
 		getPhillyPre2007($year, $countyNum, $courtType, $courtLevel);
 	else
 	{	
@@ -174,7 +183,7 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 	{
 		$monthBlanks += 1;
 		
-		foreach (range(0,60) as $day)
+		foreach (range(0,99) as $day)
 		{
 			$dayBlanks += 1;
 
@@ -212,7 +221,7 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 					{
 						$codefBlanks = $counterBlanks = $dayBlanks = $monthBlanks = 0;
 					}	
-					if ($codefBlanks > 4)
+					if ($codefBlanks > 3)
 					{
 						$codefBlanks = 0;
 						break;
