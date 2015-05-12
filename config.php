@@ -19,7 +19,8 @@ $toolsDir = "c:\wamp\\tools\\";
 // $baseURL = "http://localhost//";
 $tempFile = tempnam($docketDir, "FOO");
 $pdftotext = "pdftotext.exe";
-$baseURL = "http://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
+$baseURL = "https://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
+$baseURLSummary = "https://ujsportal.pacourts.us/DocketSheets/CourtSummaryReport.ashx?docketNumber=";
 $mdjBaseURL = "http://ujsportal.pacourts.us/DocketSheets/MDJReport.aspx?docketNumber=";
 $contDocketDir = "c:" . DIRECTORY_SEPARATOR . "cpcms" . DIRECTORY_SEPARATOR . "contDocket";
 

@@ -3,8 +3,9 @@
 // getDocketsGranular.php - Gets dockets continously from CPCMS and processes them into the database
 
 require_once("config.php");
+require_once("Docket.php");
 
-$options = getopt("y:s::e::i::h::");
+$options = getopt("y:s::e::i::z::h::");
 
 if (!empty($options["h"]))
 {
@@ -13,11 +14,13 @@ if (!empty($options["h"]))
 	print "-s Optional. The code for the county that you want to start with (e.g. Philly is 51).  If none is specified, will start with 1\n";
 	print "-e Optional. The code for the county that you want to end with (e.g. Philly is 51).  If none is specified, will end with 67\n";
 	print "-i Optional.  The type of docket you want to ignore.  Can be CP, MC, or SU.  Can include multiple with a '|'.  If none is specified, will default to including all types of dockets.";
+	print "-z Optional.  Include -z if you want to download summary dockets rather than full dockets for an individual";
 	print "-h shows this message\n";
 	exit;
 }
 
 $ignore = array();
+$downloadURL = $GLOBALS['baseURL'];
 
 if (!empty($options["y"]))
 	$year = $options["y"];
@@ -31,6 +34,9 @@ if (!empty($options["e"]))
 
 if (!empty($options["i"]))
 	$ignore = explode("|", $options["i"]);
+
+if (!empty($options["z"]))
+	$downloadURL = $GLOBALS['baseURLSummary'];
 
 getDocketsGranular($year, $countyStart, $countyEnd, $ignore);
 
@@ -113,9 +119,18 @@ function getDocketSheetsByYearCountyType($year, $countyNum, $courtType, $courtLe
 			}
 			
 			$docketNumber = getDocketNumber($num, $year, $countyNum, $courtLevel, $courtType);
+			
+			// check to see if this docket number is already in our database; if so, don't redownload as this takes a long time
+			if (duplicateDocket($docketNumber))
+			{
+				"\nDuplicate Case: $docketNumber";
+				break;
+			}
+				
 			print "\nDownloading: $docketNumber";
 			
-			$url = $GLOBALS['baseURL'] . $docketNumber;
+			$url = $GLOBALS['downloadURL'] . $docketNumber;
+
 			curl_setopt($ch, CURLOPT_URL, $url); 
 			//print $url . "\n";
 			
@@ -202,9 +217,18 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 					}
 			
 					$docketNumber = getPre2007PhillyDocketNumber($month, $day, $counter, $codef, $year, $countyNum, $courtLevel, $courtType);
+					// check to see if this docket number is already in our database; if so, don't redownload as this takes a long time
+					if (duplicateDocket($docketNumber))
+					{
+						"\nDuplicate Case: $docketNumber";
+						break;
+					}
+
+
 					print "\nDownloading: $docketNumber" . " $codefBlanks | $counterBlanks | $dayBlanks | $monthBlanks";
 		
-					$url = $GLOBALS['baseURL'] . $docketNumber;
+					$url = $GLOBALS['downloadURL'] . $docketNumber;
+					print "\n$url";
 					curl_setopt($ch, CURLOPT_URL, $url); 
 					//print $url . "\n";
 			
@@ -260,6 +284,17 @@ function readPDFToFile($ch, $file)
 	return;
 }
 
+// checks the database to see if this docket number already exists; if so, returns false
+function duplicateDocket($docketNumber)
+{
+	$id = Docket::checkInDB($GLOBALS['db'], "`Case`", "docket", $docketNumber, "", "", "id");
+		
+	// if ID = 0, that means that this case is not in the DB
+	if ($id==0)
+		return false;
+	else
+		return true;
+}
 
 
 ?>

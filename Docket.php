@@ -1020,7 +1020,7 @@ class Docket
 	// @param $field2 - the other field to match to see if we have a unique entry
 	// @param $value2 - the other value of the field to match to see if we have a unique entry
 	// @param $fieldSought - the field we want returned if this is not a unique entry
-	public function checkInDB($db, $table, $field, $value, $field2, $value2, $fieldSought)
+	public static function checkInDB($db, $table, $field, $value, $field2, $value2, $fieldSought)
 	{
 		$sql = "SELECT $fieldSought FROM $table WHERE $field='" . $db->real_escape_string($value) . "'";
 		if (!empty($field2) && !empty($value2))

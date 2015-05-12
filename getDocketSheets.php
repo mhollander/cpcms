@@ -9,6 +9,7 @@
 
 $basedir = "C:\cpcms\\dockets\\";
 $baseURL = "http://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
+$baseURLSummary = "http://ujsportal.pacourts.us/DocketSheets/CourtSummaryReport.ashx?docketNumber=";
 $mdjBaseURL = "http://ujsportal.pacourts.us/DocketSheets/MDJReport.aspx?docketNumber=";
 $baseYear = "2010";
 $baseMC = "MC-51-CR-";
