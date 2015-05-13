@@ -77,6 +77,7 @@ function initConnection()
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 	curl_setopt($ch, CURLOPT_FORBID_REUSE, FALSE);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 	return $ch;
 }
 
@@ -228,9 +229,8 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 					print "\nDownloading: $docketNumber" . " $codefBlanks | $counterBlanks | $dayBlanks | $monthBlanks";
 		
 					$url = $GLOBALS['downloadURL'] . $docketNumber;
-					print "\n$url";
 					curl_setopt($ch, CURLOPT_URL, $url); 
-					//print $url . "\n";
+					print $url . "\n";
 			
 					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
 					//print $file;
