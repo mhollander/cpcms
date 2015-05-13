@@ -9,7 +9,7 @@ $debug=FALSE;
 
 $dbPassword = "2xj9cpJXt4vBxxmf";
 $dbUser = "cpcms";
-$dbName = "cpcms";
+$dbName = "cpcms1999";
 $dbHost = "localhost";
 
 require_once("c:\wamp\\tools\dbconnect.php");

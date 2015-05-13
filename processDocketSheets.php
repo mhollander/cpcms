@@ -2,6 +2,7 @@
 
 require_once("config.php");
 require_once("Docket.php");
+require_once("ArrestSummary.php");
 
 // foreach dir
 // open dir
@@ -61,7 +62,7 @@ function processLargeDir()
 		{
 			processDocket($file);
 			// and then delete the file so that we don't reprocess it
-			unlink($file);
+			//unlink($file);
 		}
 	}
 }
@@ -78,7 +79,7 @@ function processContinuous()
 			{
 				processDocket($file);
 				// and then delete the file so that we don't reprocess it
-				unlink($file);
+				//unlink($file);
 				$processedfile = true;
 			}
 			else
@@ -163,6 +164,14 @@ function processDocket($file)
 				$docket->simplePrint();
 			else
 				print "\nProcessing " . $docket->getDocketNumber();
+		}
+		
+		// otherwise check if this is a summary docketSheet
+		if (ArrestSummary::isArrestSummaryFromLine($thisDocket[1]))
+		{
+			// and process accordingly
+			$arrestSummary = new ArrestSummary();
+			$arrestSummary->processArrestSummary($thisDocket);
 		}
 	}
 }

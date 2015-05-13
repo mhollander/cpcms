@@ -53,6 +53,7 @@ class Docket
 	private $isSummaryArrest = FALSE;
 	private $isArrestSummaryExpungement;
 	private $isArrestOver70Expungement;
+	private $isArchived = FALSE;
 	private $pdfFile;
 	private $crossCourtDocket;
 	private $lowerCourtDocket;
@@ -74,6 +75,7 @@ class Docket
 	private $costTotals = array();
 	private $finalDisposition = FALSE;
 	private $caseFinancialInformation = FALSE;
+	
 	// isMDJ = 0 if this is not an mdj case at all, 1 if this is an mdj case and 2 if this is a CP case that decended from MDJ
 	private $isMDJ = 0;
 		
@@ -224,6 +226,7 @@ class Docket
 	public function getIsHeldForCourt()  { return $this->isHeldForCourt; }
 	public function getIsSummaryArrest()  { return $this->isSummaryArrest; }
 	public function getIsMDJ() { return $this->isMDJ; }
+	public function getIsArchived() { return $this->isArchived; }
 	public function getPDFFile() { return $this->pdfFile;}
 	public function getCrossCourtDocket() { return $this->crossCourtDocket; }
 	public function getDateFiled() { return $this->dateFiled; }
@@ -292,6 +295,7 @@ class Docket
 	public function setIsArrestOver70Expungement($isOver70Expungement) { $this->isArrestOver70Expungement = $isOver70Expungement; }
 	public function setIsHeldForCourt($isHeldForCourt)  {  $this->isHeldForCourt = $isHeldForCourt; }
 	public function setIsMDJ($isMDJ)  {  $this->isMDJ = $isMDJ; }
+	public function setIsArchived($isArchived)  {  $this->isArchived = $isArchived; }
 	public function setPDFFile($pdfFile) { $this->pdfFile = $pdfFile; }
 	public function setCrossCourtDocket($a) { $this->crossCourtDocket = $a; }
 	public function setLowerCourtDocket($a) { $this->lowerCourtDocket = $a; }
