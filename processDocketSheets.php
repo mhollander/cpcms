@@ -148,7 +148,7 @@ function processDocket($file)
 
 	if ($ret == 0)
 	{
-		//print $filename . "<br />";
+		print $file . "<br />";
 		$thisDocket = file($GLOBALS['tempFile']);
 
 		$docket = new Docket();

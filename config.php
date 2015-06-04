@@ -3,7 +3,7 @@
 // configuration settings for the expungement generator
 //
 
-$debug=FALSE;
+$debug=true;
 
 // database connection information
 
