@@ -5,40 +5,49 @@
 require_once("config.php");
 require_once("Docket.php");
 
-$options = getopt("y:s::e::i::z::h::");
 
-if (!empty($options["h"]))
+// if the file was called from the command line, then we want to get the options, etc...
+// otherwise, we just want the function definitions
+if(__FILE__ == realpath($_SERVER['SCRIPT_FILENAME'])) 
 {
-	print "Usage: php getDocketsGranular.php [-y\"<year>\"] [-c\"<county code>\"] [-h]\n";
-	print "-y The year that you want to process, for example '2010'\n";
-	print "-s Optional. The code for the county that you want to start with (e.g. Philly is 51).  If none is specified, will start with 1\n";
-	print "-e Optional. The code for the county that you want to end with (e.g. Philly is 51).  If none is specified, will end with 67\n";
-	print "-i Optional.  The type of docket you want to ignore.  Can be CP, MC, or SU.  Can include multiple with a '|'.  If none is specified, will default to including all types of dockets.";
-	print "-z Optional.  Include -z if you want to download summary dockets rather than full dockets for an individual";
-	print "-h shows this message\n";
-	exit;
+
+	$options = getopt("y:s::e::i::z::h::");
+
+	if (!empty($options["h"]))
+	{
+		print "Usage: php getDocketsGranular.php [-y\"<year>\"] [-c\"<county code>\"] [-h]\n";
+		print "-y The year that you want to process, for example '2010'\n";
+		print "-s Optional. The code for the county that you want to start with (e.g. Philly is 51).  If none is specified, will start with 1\n";
+		print "-e Optional. The code for the county that you want to end with (e.g. Philly is 51).  If none is specified, will end with 67\n";
+		print "-i Optional.  The type of docket you want to ignore.  Can be CP, MC, or SU.  Can include multiple with a '|'.  If none is specified, will default to including all types of dockets.";
+		print "-z Optional.  Include -z if you want to download summary dockets rather than full dockets for an individual";
+		print "-h shows this message\n";
+		exit;
+	}
+
+	$ignore = array();
+	$downloadURL = $GLOBALS['baseURL'];
+
+	if (!empty($options["y"]))
+		$year = $options["y"];
+
+	$countyStart = $countyEnd = "";
+	if (!empty($options["s"]))
+		$countyStart = $options["s"];
+
+	if (!empty($options["e"]))
+		$countyEnd = $options["e"];
+
+	if (!empty($options["i"]))
+		$ignore = explode("|", $options["i"]);
+
+	if (!empty($options["z"]))
+		$downloadURL = $GLOBALS['baseURLSummary'];
+
+	getDocketsGranular($year, $countyStart, $countyEnd, $ignore);
 }
-
-$ignore = array();
-$downloadURL = $GLOBALS['baseURL'];
-
-if (!empty($options["y"]))
-	$year = $options["y"];
-
-$countyStart = $countyEnd = "";
-if (!empty($options["s"]))
-	$countyStart = $options["s"];
-
-if (!empty($options["e"]))
-	$countyEnd = $options["e"];
-
-if (!empty($options["i"]))
-	$ignore = explode("|", $options["i"]);
-
-if (!empty($options["z"]))
-	$downloadURL = $GLOBALS['baseURLSummary'];
-
-getDocketsGranular($year, $countyStart, $countyEnd, $ignore);
+else
+	$downloadURL = $GLOBALS['baseURL'];
 
 function getDocketsGranular($year, $countyStart, $countyEnd, $ignore)
 {	
@@ -121,42 +130,16 @@ function getDocketSheetsByYearCountyType($year, $countyNum, $courtType, $courtLe
 			
 			$docketNumber = getDocketNumber($num, $year, $countyNum, $courtLevel, $courtType);
 			
-			// check to see if this docket number is already in our database; if so, don't redownload as this takes a long time
-			if (duplicateDocket($docketNumber))
-			{
-				"\nDuplicate Case: $docketNumber";
-				break;
-			}
-				
-			print "\nDownloading: $docketNumber";
+			$noContent = downloadDocket($ch, $docketNumber);
 			
-			$url = $GLOBALS['downloadURL'] . $docketNumber;
-
-			curl_setopt($ch, CURLOPT_URL, $url); 
-			//print $url . "\n";
-			
-			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
-			//print $file;
-			
-			readPDFToFile($ch, $file);
-			
-			// a) checks the filesize; b) if the file size is < 5kb, increment a counter; if it is more than 5kb, reset the counter; c) if the counter is ever > 500, break the loop
-			$filesize = filesize($file);
-			if ($filesize < 4000)
-			{
-				// delete the file so that it doesn't pollute the file system
-				unlink($file);
+			if ($noContent)
 				$endOfLine += 1;
-			}
 			else
 				$endOfLine = 0;
-				
+		
 			if ($endOfLine > 500)
-			{
-				//$ch->close();
 				break;
-			}
-				
+
 		}
 	}
 	curl_close($ch);
@@ -270,6 +253,40 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 	}
 	curl_close($ch);
 }
+
+function downloadDocket($ch, $docketNumber)
+{
+	print "\ndownloading docket: $docketNumber";
+	// check to see if this docket number is already in our database; if so, don't redownload as this takes a long time
+	if (duplicateDocket($docketNumber))
+	{
+		"\nDuplicate Case: $docketNumber";
+		return false;
+	}
+		
+	print "\nDownloading: $docketNumber";
+	
+	$url = $GLOBALS['downloadURL'] . $docketNumber;
+
+	curl_setopt($ch, CURLOPT_URL, $url); 
+	//print $url . "\n";
+	
+	$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
+	//print $file;
+	
+	readPDFToFile($ch, $file);
+	
+	// a) checks the filesize; b) if the file size is < 5kb, increment a counter; if it is more than 5kb, reset the counter; c) if the counter is ever > 500, break the loop
+	$filesize = filesize($file);
+	if ($filesize < 4000)
+	{
+		// delete the file so that it doesn't pollute the file system
+		unlink($file);
+		return true;
+	}
+	else
+		return false;
+}	
 
 // @param ch - the curl stream
 // @param file - the file to write to

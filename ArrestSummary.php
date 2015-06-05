@@ -52,6 +52,7 @@ class ArrestSummary
 	
 	public function getSID() { return $this->SID; }
 	public function getPID() { return $this->PID; }
+	public function getDockets() { return $this->dockets; }
 	
 	public function setSID($SID) { $this->SID = $SID; }
 	public function setPID($PID) { $this->PID = $PID; }
@@ -133,8 +134,12 @@ class ArrestSummary
 					$docket->setDocketNumber(array(trim($matches[1])));
 					// note that this is an archived case, so that the DB can have that clearly marked
 					$docket->setIsArchived(true);
+					
+					// add add the docket to the array of dockets as part of this summary
 					$this->dockets[trim($matches[1])] = $docket;
+					print "\n" . $docket->getFirstDocketNumber();
 				}
+				continue;
 			}
 				
 			// check to see if we are at the "archived" section, where only case numbers are listed without information beyond that
@@ -154,7 +159,6 @@ class ArrestSummary
 			// We also want to create a new arrest and add that arrest to the array
 			if (preg_match(self::$docketDCNOTNSearch, $line, $matches))
 			{
-				print "\nmatch";
 				//print "\n" . $line;
 				$docket = new Docket();
 				$docket->setDocketNumber(array(trim($matches[1])));
@@ -162,6 +166,8 @@ class ArrestSummary
 					$docket->setDC(trim($matches[3]));
 				if (isset($matches[4]))
 					$docket->setOTN(trim($matches[4]));
+				
+				print "\n" . $docket->getFirstDocketNumber() . "|" . $docket->getDC() . "|" . $docket->getOTN() . "|";
 				
 				// start with the next line int he file and keep reading until we either hit another case, the archived section, or the end of the file.
 				// we shoudl take in all information as possible, like any charges on the arrest, etc...
@@ -172,7 +178,7 @@ class ArrestSummary
 					// if we get to the next case or the archived section, break out of the loop and continue processing the rest of the summary
 					if (preg_match(self::$docketDCNOTNSearch, $aLine, $junk) || preg_match(self::$archivedSearch, trim($aLine),$junk))
 					{
-						print "\nbreaking";
+						//print "\nbreaking";
 						//print "\n" . $aLine;
 						break;
 					}
@@ -191,11 +197,12 @@ class ArrestSummary
 						if (!preg_match(self::$migratedJudgeSearch, $matches2[3], $junk) && trim($matches2[3]) != "")
 							$docket->setJudgeAssigned(trim($matches2[3]));
 					
+						print $docket->getJudgeAssigned() . "|" . $docket->getArrestDate() . "|" . $docket->getDispositionDate();
 					}
 
 					else if (preg_match(self::$chargesSearch,$aLine,$matches3))
 					{
-						print "\nMatching charges";
+						// print "\nMatching charges";
 						$codeSection = trim($matches3[1]);
 						$grade = trim($matches3[2]);  // the grade often doesn't exist, especially in Philly
 						$chargeName = trim($matches3[3]);
@@ -219,12 +226,14 @@ class ArrestSummary
 						
 						$docket->addCharge($charge);
 						
-						print "\ncharge: " . $charge->getChargeName() . "|".$charge->getDisposition()."|".$charge->getCodeSection()."|".$charge->getGrade()."|".$charge->getDispDate();
+						//print "\ncharge: " . $charge->getChargeName() . "|".$charge->getDisposition()."|".$charge->getCodeSection()."|".$charge->getGrade()."|".$charge->getDispDate();
 					}
 				}
 				$this->dockets[trim($matches[1])] = $docket;
 			}
 		}
 	}
+	
+
 }
 ?>

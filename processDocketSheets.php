@@ -3,7 +3,7 @@
 require_once("config.php");
 require_once("Docket.php");
 require_once("ArrestSummary.php");
-
+require_once("getDocketsGranular.php");
 // foreach dir
 // open dir
 // for each file
@@ -172,6 +172,24 @@ function processDocket($file)
 			// and process accordingly
 			$arrestSummary = new ArrestSummary();
 			$arrestSummary->processArrestSummary($thisDocket);
+			
+			// iterate over all the dockets; if any are summary dockets, download them so they can be later processed	
+			// otherwise write the docket to the database
+			$ch = initConnection();
+			foreach($arrestSummary->getDockets() as $sDocket)
+			{
+				if ($sDocket->getIsArchived())
+				{
+					//$basedir = ".";
+					//$baseURL = "http://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
+					downloadDocket($ch, $sDocket->getFirstDocketNumber());
+				}
+				else
+					$sDocket->writeDocketToDatabase($GLOBALS['db']);
+		
+			}
+			curl_close($ch);
+
 		}
 	}
 }

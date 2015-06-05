@@ -316,6 +316,20 @@ class Docket
 	{
 		$variable[] = array($name, str_replace("\$", "", $cost1), str_replace("\$", "", $cost2), str_replace("\$", "", $cost3), str_replace("\$", "", $cost4), str_replace("\$", "", $cost5));
 	}
+
+	// @return the first docket number on the array, which should be the CP or lead docket num
+	public function getFirstDocketNumber() 
+	{
+		
+		if (count($this->getDocketNumber()) > 0)
+		{
+			$docketNumber = $this->getDocketNumber();
+			return $docketNumber[0];
+		}
+		else
+			return NULL;
+	}
+
 	
 	// push a single chage onto the charge array
 	public function addCharge($charge) {  $this->charges[] = $charge; }
@@ -816,7 +830,7 @@ class Docket
 	{
 	
 		// start by checking to see if this docket number is already in the database; if it is, then don't write anything to the DB
-		$id = $this->checkInDB($db, "`Case`", "docket", $this->getDocketNumber(), "", "", "id");
+		$id = $this->checkInDB($db, "`Case`", "docket", $this->getFirstDocketNumber(), "", "", "id");
 		
 		// if ID = 0, that means that this case is not in the DB and we can proceed to add it.  If it doesn't == 0, then we don't want to add the case because it is already in the db
 		if ($id==0)
@@ -1056,7 +1070,7 @@ class Docket
 	// @param $cwAttorneyID - the id of the commonwealth attorney
 	public function writeCaseToDatabase($db, $defendantID, $defAttorneyID, $cwAttorneyID, $arrestingAgencyID)
 	{
-		$sql = "INSERT INTO `Case` (`docket`, `crossCourtDocket`, `lowerCourtDocket`, `OTN`, `DC`, `dateFiled`, `arrestDate`, `complaintDate`, `arrestingOfficer`, `arrestingAgencyID`, `initialAuthority`, `finalAuthority`, `judgeAssigned`, `county`, `defendantID`, `CWAttorneyID`, `defAttorneyID`) VALUES ('" . $db->real_escape_string($this->getDocketNumber()) ."', '" . $db->real_escape_string($this->getCrossCourtDocket()) ."', '" . $db->real_escape_string($this->getLowerCourtDocket()) ."', '" . $this->getOTN() . "', '" . $this->getDC() . "', '" . dateConvert($this->getDateFiled()) . "', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getComplaintDate()) . "', '" . $db->real_escape_string($this->getArrestingOfficer()) . "', '" . $arrestingAgencyID . "', '" . $db->real_escape_string($this->getInitialIssuingAuthority()) . "', '" . $db->real_escape_string($this->getFinalIssuingAuthority()) . "', '" . $db->real_escape_string($this->getJudgeAssigned()) . "', '" . $db->real_escape_string($this->getCounty()) . "', '" . $defendantID . "', '" . $cwAttorneyID . "', '" . $defAttorneyID . "')";
+		$sql = "INSERT INTO `Case` (`docket`, `crossCourtDocket`, `lowerCourtDocket`, `OTN`, `DC`, `dateFiled`, `arrestDate`, `complaintDate`, `arrestingOfficer`, `arrestingAgencyID`, `initialAuthority`, `finalAuthority`, `judgeAssigned`, `county`, `defendantID`, `CWAttorneyID`, `defAttorneyID`) VALUES ('" . $db->real_escape_string($this->getFirstDocketNumber()) ."', '" . $db->real_escape_string($this->getCrossCourtDocket()) ."', '" . $db->real_escape_string($this->getLowerCourtDocket()) ."', '" . $this->getOTN() . "', '" . $this->getDC() . "', '" . dateConvert($this->getDateFiled()) . "', '" . dateConvert($this->getArrestDate()) . "', '" . dateConvert($this->getComplaintDate()) . "', '" . $db->real_escape_string($this->getArrestingOfficer()) . "', '" . $arrestingAgencyID . "', '" . $db->real_escape_string($this->getInitialIssuingAuthority()) . "', '" . $db->real_escape_string($this->getFinalIssuingAuthority()) . "', '" . $db->real_escape_string($this->getJudgeAssigned()) . "', '" . $db->real_escape_string($this->getCounty()) . "', '" . $defendantID . "', '" . $cwAttorneyID . "', '" . $defAttorneyID . "')";
 
 		// print $sql;
 		if (!$db->query($sql)) 
