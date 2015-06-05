@@ -43,7 +43,7 @@ class ArrestSummary
 	// match any line with charges on it
 	// $1 = code section; $3 = charge name; $4 = disposition
 	// maybe have to deal with grading on non-philly cases?
-	protected static $chargesSearch = "/^\s+\d\s+(\w{1,2}\s?(\s\w|\-|\247|\w)*)(?=\s\s)\s{12,}(\w{0,2})\s{5,}(.+)(?=\s\s)\s{12,}(\w.+?)\s*$/";
+	protected static $chargesSearch = "/^\s+\d{1,2}\s+(.+?)(?=\s\s)\s{12,}(\w{0,2})\s{2,}(.+?)(?=\s\s)\s{8,}(\w.+?)\s*$/";
 	protected static $chargesSearchOverflow	 = "/^\s+(\w+( \w+)*)+\s+$/";
 	
 	protected static $archivedSearch = "/^Archived$/";
@@ -152,10 +152,10 @@ class ArrestSummary
 			// if we match the docket/DC/OTN, we are looking at a new case.  We want to keep reading ahead until we get to the next 
 			// case.  
 			// We also want to create a new arrest and add that arrest to the array
-			print "\n".$line;
 			if (preg_match(self::$docketDCNOTNSearch, $line, $matches))
 			{
 				print "\nmatch";
+				//print "\n" . $line;
 				$docket = new Docket();
 				$docket->setDocketNumber(array(trim($matches[1])));
 				if (isset($matches[3]))
@@ -168,16 +168,18 @@ class ArrestSummary
 				for ($a = $line_num+1; $a < sizeof($docketRecordFile); $a++)
 				{
 					$aLine = $docketRecordFile[$a];
-					print "\n".trim($aLine)	;
+					// print "\n".trim($aLine)	;
 					// if we get to the next case or the archived section, break out of the loop and continue processing the rest of the summary
 					if (preg_match(self::$docketDCNOTNSearch, $aLine, $junk) || preg_match(self::$archivedSearch, trim($aLine),$junk))
 					{
 						print "\nbreaking";
+						//print "\n" . $aLine;
 						break;
 					}
 					
 					if (preg_match(self::$docketDateDispDateJudgeSearch,$aLine,$matches2))
 					{
+						//print "\n Getting a judge!";
 						// only set these if the variables are not empty (can't do empty(trim($matches) until PHP 5.5))
 						if (trim($matches2[1]) != false)
 							$docket->setArrestDate(trim($matches2[1]));
@@ -195,14 +197,14 @@ class ArrestSummary
 					{
 						print "\nMatching charges";
 						$codeSection = trim($matches3[1]);
-						$grade = trim($matches3[3]);  // the grade often doesn't exist, especially in Philly
-						$chargeName = trim($matches3[4]);
+						$grade = trim($matches3[2]);  // the grade often doesn't exist, especially in Philly
+						$chargeName = trim($matches3[3]);
 						$disposition = "";
 						// if there is no disposition on the charge, the chargeName gets set as the disposition, so we have to do some hacky stuff
 						if ($chargeName=="")
-							$chargeName = trim($matches3[5]);
+							$chargeName = trim($matches3[4]);
 						else
-							$disposition = trim($matches3[5]);
+							$disposition = trim($matches3[4]);
 						
 						// we need to check to see if the next line has overflow from the charge.
 						// this happens on long charges, like possession of controlled substance

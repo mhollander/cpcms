@@ -3,7 +3,7 @@
 // configuration settings for the expungement generator
 //
 
-$debug=true;
+$debug=false;
 
 // database connection information
 
@@ -18,6 +18,8 @@ $docketDir = "c:" . DIRECTORY_SEPARATOR . "cpcms" . DIRECTORY_SEPARATOR . "docke
 $toolsDir = "c:\wamp\\tools\\";
 // $baseURL = "http://localhost//";
 $tempFile = tempnam($docketDir, "FOO");
+
+// note that this works with pdftotext 3.03, but not 3.04!  The text extraction is different in 3.04
 $pdftotext = "pdftotext.exe";
 $baseURL = "https://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
 $baseURLSummary = "https://ujsportal.pacourts.us/DocketSheets/CourtSummaryReport.ashx?docketNumber=";
