@@ -62,7 +62,7 @@ function processLargeDir()
 		{
 			processDocket($file);
 			// and then delete the file so that we don't reprocess it
-			//unlink($file);
+			unlink($file);
 		}
 	}
 }
@@ -79,7 +79,7 @@ function processContinuous()
 			{
 				processDocket($file);
 				// and then delete the file so that we don't reprocess it
-				//unlink($file);
+				unlink($file);
 				$processedfile = true;
 			}
 			else
