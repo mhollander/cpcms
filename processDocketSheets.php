@@ -120,7 +120,6 @@ function processDocket($file)
 			{
 				$aDefendantID = explode("#", basename($file));
 				$defendantID = $aDefendantID[0];
-				print_r($aDefendantID);
 			}
 			
 			$docket->writeDocketToDatabase($GLOBALS['db'], $defendantID);

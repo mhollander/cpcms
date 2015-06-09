@@ -24,8 +24,14 @@
 class ArrestSummary
 {
 	private $dockets = array();
+	private $firstName;
+	private $lastName;
+	private $DOB;
 	private $SID;
 	private $PID;
+	private $city;
+	private $state;
+	private $zip;
 	private $archived = false;  // a flag used when reading a summary docket to determine whether we have gotten to the archived cases yet
 	private $aliases = array();
 
@@ -40,6 +46,13 @@ class ArrestSummary
 	// matches the arrest Date, Disposition Date, and judge from the summary arrest record
 	protected static $docketDateDispDateJudgeSearch = "/Arrest Dt:\s*(\d{1,2}\/\d{1,2}\/\d{4})?.*Disp Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})?\s*Disp Judge:(.*)/";
 	
+	// match the name, DOB, and sex
+	protected static $nameDOBSexSearch = "/^\s*(.*), (.*)\s+DOB: (\S+)?\s+Sex:/";
+	
+	// city/state/zip search, on the line after the name
+	protected static $cityStateZipSearch = "/(.*), (\w{2})\s+(\d{5})/";
+
+	
 	// match any line with charges on it
 	// $1 = code section; $3 = charge name; $4 = disposition
 	// maybe have to deal with grading on non-philly cases?
@@ -50,12 +63,24 @@ class ArrestSummary
 	protected static $archivedCaseNumberSearch = "/((MC|CP)\-\d{2}\-\D{2}\-\d*\-\d{4})/";
 	protected static $migratedJudgeSearch = "/migrated/i";
 	
+	public function getFirstName() { return $this->firstName; }
+	public function getLastName() { return $this->lastName; }
+	public function getDOB() { return $this->DOB; }
 	public function getSID() { return $this->SID; }
 	public function getPID() { return $this->PID; }
 	public function getDockets() { return $this->dockets; }
+	public function getCity() { return $this->city; }
+	public function getState() { return $this->state; }
+	public function getZip() { return $this->zip; }
 	
+	public function setFirstName($firstName) { $this->firstName = $firstName; }
+	public function setLastName($lastName) { $this->lastName = $lastName;; }
+	public function setDOB($DOB) { $this->DOB = $DOB; }
 	public function setSID($SID) { $this->SID = $SID; }
 	public function setPID($PID) { $this->PID = $PID; }
+	public function setCity($a) { $this->city = $a; }
+	public function setState($a) { $this->state = $a; }
+	public function setZip($a) { $this->zip = $a; }
 	
 	public function getArrestKeys() { return array_keys($this->docketss); }
 
@@ -149,6 +174,25 @@ class ArrestSummary
 				continue;
 			}			
 			
+			// find the line with the name, DOB, and Sex
+			if (preg_match(self::$nameDOBSexSearch, $line, $matches))
+			{
+				$this->setFirstName(trim($matches[2]));
+				$this->setLastName(trim($matches[1]));
+				
+				if (trim($matches[3]) != false)
+					$this->setDOB(trim($matches[3]));
+
+				// if we matches the person's name, the next line should have the state
+				if (preg_match(self::$cityStateZipSearch,$docketRecordFile[$line_num+1],$matches2))
+				{
+					$this->setCity(trim($matches2[1]));
+					$this->setState(trim($matches2[2]));
+					$this->setZip(trim($matches2[3]));
+
+				}
+			}
+			
 			if (preg_match(self::$SIDSearch, $line, $matches))
 				$this->setSID(trim($matches[1]));
 			if (preg_match(self::$PIDSearch, $line, $matches))
@@ -162,6 +206,15 @@ class ArrestSummary
 				//print "\n" . $line;
 				$docket = new Docket();
 				$docket->setDocketNumber(trim($matches[1]));
+				$docket->setFirstName($this->getFirstName());
+				$docket->setLastName($this->getLastName());
+				$docket->setDOB($this->getDOB());
+//				$docket->setSID($this->getSID());
+//				$docket->setPID($this->getPID());
+				$docket->setCity($this->getCity());
+				$docket->setState($this->getState());
+				$docket->setZip($this->getZip());
+				
 				if (isset($matches[3]))
 					$docket->setDC(trim($matches[3]));
 				if (isset($matches[4]))
@@ -175,6 +228,8 @@ class ArrestSummary
 				{
 					$aLine = $docketRecordFile[$a];
 					// print "\n".trim($aLine)	;
+					
+					
 					// if we get to the next case or the archived section, break out of the loop and continue processing the rest of the summary
 					if (preg_match(self::$docketDCNOTNSearch, $aLine, $junk) || preg_match(self::$archivedSearch, trim($aLine),$junk))
 					{
