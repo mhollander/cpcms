@@ -826,7 +826,7 @@ class Docket
 
 	}
 	
- 	public function writeDocketToDatabase($db)
+ 	public function writeDocketToDatabase($db, $defendantID)
 	{
 	
 		// start by checking to see if this docket number is already in the database; if it is, then don't write anything to the DB
@@ -836,7 +836,8 @@ class Docket
 		if ($id==0)
 		{
 			// write the defendant to the database and get the ID
-			$defendantID = $this->writeDefendantToDatabase($db);
+			if (is_null($defendantID))
+				$defendantID = $this->writeDefendantToDatabase($db);
 			
 			// write both attorneys to the database and get the IDs
 			$defAttorneyID = $this->writeAttorneyToDatabase($db, $this->getDLawyer(), $this->getDRole(), $this->getDSupremeCourtNumber());
@@ -856,6 +857,7 @@ class Docket
 			$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostGeneric(), 0);
 			$this->writeFinesCostsToDatabase($db, $caseID, $this->getCostTotal(), 1);
 		}
+		return $defendantID;
 	}
 
 	// @return the id of the defendant just inserted into the database

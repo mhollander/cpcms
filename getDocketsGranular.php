@@ -256,6 +256,14 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 
 function downloadDocket($ch, $docketNumber)
 {
+		downloadDocketWithPrefix($ch, $docketNumber, null);
+}
+
+// downloads a specified docket number from CPCMS and stores it in the filesystem
+// if $prefix is not null, adds the prefix followed by "#" before the filename so that we can store some information
+// in the filename itself
+function downloadDocketWithPrefix($ch, $docketNumber, $prefix)
+{
 	print "\ndownloading docket: $docketNumber";
 	// check to see if this docket number is already in our database; if so, don't redownload as this takes a long time
 	if (duplicateDocket($docketNumber))
@@ -271,8 +279,12 @@ function downloadDocket($ch, $docketNumber)
 	curl_setopt($ch, CURLOPT_URL, $url); 
 	//print $url . "\n";
 	
-	$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
-	//print $file;
+	if (is_null($prefix))
+		$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
+	else
+		$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $prefix . "#" . $docketNumber . ".pdf";
+	
+	print $file;
 	
 	readPDFToFile($ch, $file);
 	

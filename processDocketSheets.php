@@ -93,50 +93,6 @@ function processContinuous()
 			sleep(5);
 		}
 	}
-				
-	/*		
-			{
-				// try to get another file
-				if (count($files) > 3)
-					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[3];
-			}
-		if (count($files) > 2) 
-		{
-			// process the top file in the directory
-			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[2];
-			
-			// don't process empty temp files waiting to be downloaded by the curl script
-			if (filesize($file) < 10)
-			{
-				// try to get another file
-				if (count($files) > 3)
-					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[3];
-			}
-
-			if (filesize($file) > 1)
-			{
-				processDocket($file);
-			
-				// and then delete the file so that we don't reprocess it
-				unlink($file);
-			}
-			else
-			{
-			
-				// clear the cache so that when we check again, we don't get a cached filesize result
-				clearstatcache();
-				print ".";
-				sleep(5);
-			}
-
-		}
-		else
-		{
-			print ".";
-			sleep(1);
-		}
-	}
-	*/
 }
 
 function processDocket($file)
@@ -152,13 +108,22 @@ function processDocket($file)
 		$thisDocket = file($GLOBALS['tempFile']);
 
 		$docket = new Docket();
-
+		$personID = null;
+		
 		if ($docket->isDocketSheet($thisDocket[1]))
 		{
 			// if this is a regular docket sheet, use the regular parsing function
 			$docket->readArrestRecord($thisDocket);
 		
-			$docket->writeDocketToDatabase($GLOBALS['db']);
+			$defendantID = null;
+			if (strpos($file, "#")!==FALSE)
+			{
+				$aDefendantID = explode("#", basename($file));
+				$defendantID = $aDefendantID[0];
+				print_r($aDefendantID);
+			}
+			
+			$docket->writeDocketToDatabase($GLOBALS['db'], $defendantID);
 		
 			if($GLOBALS['debug'])
 				$docket->simplePrint();
@@ -173,21 +138,24 @@ function processDocket($file)
 			$arrestSummary = new ArrestSummary();
 			$arrestSummary->processArrestSummary($thisDocket);
 			
-			// iterate over all the dockets; if any are summary dockets, download them so they can be later processed	
+			// iterate over all the dockets; if any are archived dockets, download them so they can be later processed	
 			// otherwise write the docket to the database
 			$ch = initConnection();
+			
+			// we use the defendantID variable to store the db id of the defendant that we are adding to the DB so that the same
+			// defendant can be used over and over and over again.
+			$defendantID = null;
 			foreach($arrestSummary->getDockets() as $sDocket)
 			{
-				if ($sDocket->getIsArchived())
-				{
-					//$basedir = ".";
-					//$baseURL = "http://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
-					downloadDocket($ch, $sDocket->getDocketNumber());
-				}
+				print "\nDefendantID: $defendantID";
+				// if we got all of the necessary information from the summary, just write to the DB
+				if (!$sDocket->getIsArchived())
+					$defendantID = $sDocket->writeDocketToDatabase($GLOBALS['db'], $defendantID);
+				// if not, then download the docket for later use
 				else
-					$sDocket->writeDocketToDatabase($GLOBALS['db']);
-		
+					downloadDocketWithPrefix($ch, $sDocket->getDocketNumber(), $defendantID);
 			}
+			$defendantID = null;  // null it out again, so that it doesn't infect later calls.  This is probably unnecssary, but just in case
 			curl_close($ch);
 
 		}
