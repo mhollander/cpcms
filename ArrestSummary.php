@@ -131,13 +131,13 @@ class ArrestSummary
 				if (preg_match(self::$archivedCaseNumberSearch, $line, $matches))
 				{
 					$docket = new Docket();
-					$docket->setDocketNumber(array(trim($matches[1])));
+					$docket->setDocketNumber(trim($matches[1]));
 					// note that this is an archived case, so that the DB can have that clearly marked
 					$docket->setIsArchived(true);
 					
 					// add add the docket to the array of dockets as part of this summary
 					$this->dockets[trim($matches[1])] = $docket;
-					print "\n" . $docket->getFirstDocketNumber();
+					// print "\n" . $docket->getDocketNumber();
 				}
 				continue;
 			}
@@ -161,13 +161,13 @@ class ArrestSummary
 			{
 				//print "\n" . $line;
 				$docket = new Docket();
-				$docket->setDocketNumber(array(trim($matches[1])));
+				$docket->setDocketNumber(trim($matches[1]));
 				if (isset($matches[3]))
 					$docket->setDC(trim($matches[3]));
 				if (isset($matches[4]))
 					$docket->setOTN(trim($matches[4]));
 				
-				print "\n" . $docket->getFirstDocketNumber() . "|" . $docket->getDC() . "|" . $docket->getOTN() . "|";
+				// print "\n" . $docket->getDocketNumber() . "|" . $docket->getDC() . "|" . $docket->getOTN() . "|";
 				
 				// start with the next line int he file and keep reading until we either hit another case, the archived section, or the end of the file.
 				// we shoudl take in all information as possible, like any charges on the arrest, etc...
@@ -197,7 +197,7 @@ class ArrestSummary
 						if (!preg_match(self::$migratedJudgeSearch, $matches2[3], $junk) && trim($matches2[3]) != "")
 							$docket->setJudgeAssigned(trim($matches2[3]));
 					
-						print $docket->getJudgeAssigned() . "|" . $docket->getArrestDate() . "|" . $docket->getDispositionDate();
+						// print $docket->getJudgeAssigned() . "|" . $docket->getArrestDate() . "|" . $docket->getDispositionDate();
 					}
 
 					else if (preg_match(self::$chargesSearch,$aLine,$matches3))

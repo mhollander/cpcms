@@ -182,7 +182,7 @@ function processDocket($file)
 				{
 					//$basedir = ".";
 					//$baseURL = "http://ujsportal.pacourts.us/DocketSheets/CPReport.ashx?docketNumber=";
-					downloadDocket($ch, $sDocket->getFirstDocketNumber());
+					downloadDocket($ch, $sDocket->getDocketNumber());
 				}
 				else
 					$sDocket->writeDocketToDatabase($GLOBALS['db']);
