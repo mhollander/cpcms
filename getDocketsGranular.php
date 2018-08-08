@@ -3,7 +3,7 @@
 // getDocketsGranular.php - Gets dockets continously from CPCMS and processes them into the database
 
 require_once("config.php");
-require_once("Docket.php");
+#require_once("Docket.php");
 
 
 // if the file was called from the command line, then we want to get the options, etc...
@@ -66,7 +66,7 @@ function getDocketsGranular($year, $countyStart, $countyEnd, $ignore)
 	{
 		if (!in_array("CP", $ignore))
 			getDocketSheetsByYearCountyType($year, $countyNum, "CR", "CP");
-		
+
 		// if this is philly, also get all of the MC dockets, which include CR and SU
 		if ($countyNum == 51)
 		{
@@ -129,6 +129,13 @@ function getDocketSheetsByYearCountyType($year, $countyNum, $courtType, $courtLe
 			}
 			
 			$docketNumber = getDocketNumber($num, $year, $countyNum, $courtLevel, $courtType);
+            
+            // check to see if we've already downloaded and processed this file.  If so, then skip it.
+            if (file_exists($GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $docketNumber))
+              { 
+                print "\nSkipping $docketNumber";
+                continue;
+              }
 			
 			$noContent = downloadDocket($ch, $docketNumber);
 			
@@ -202,11 +209,18 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 			
 					$docketNumber = getPre2007PhillyDocketNumber($month, $day, $counter, $codef, $year, $countyNum, $courtLevel, $courtType);
 					// check to see if this docket number is already in our database; if so, don't redownload as this takes a long time
-					if (duplicateDocket($docketNumber))
-					{
-						"\nDuplicate Case: $docketNumber";
-						break;
-					}
+                                // check to see if we've already downloaded and processed this file.  If so, then skip it.
+                    if (file_exists($GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $docketNumber))
+                    { 
+                        print "\nSkipping $docketNumber";
+                        continue;
+                    }
+
+#					if (duplicateDocket($docketNumber))
+#					{
+#						"\nDuplicate Case: $docketNumber";
+#						break;
+#					}
 
 
 					print "\nDownloading: $docketNumber" . " $codefBlanks | $counterBlanks | $dayBlanks | $monthBlanks";
@@ -214,20 +228,20 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 					$url = $GLOBALS['downloadURL'] . $docketNumber;
 					curl_setopt($ch, CURLOPT_URL, $url); 
 					print $url . "\n";
+
+        			$noContent = downloadDocket($ch, $docketNumber);
 			
-					$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
+
+                    
+					//$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $docketNumber . ".pdf";
 					//print $file;
 			
-					readPDFToFile($ch, $file);
+				#	readPDFToFile($ch, $file);
 		
 					// a) checks the filesize; b) if the file size is < 4kb, increment a counter; if it is more than 4kb, reset the counter; c) if the counter is ever > 500, break the loop
-					$filesize = filesize($file);
-					if ($filesize < 4000)
-						unlink($file);
-					else
-					{
+					#$filesize = filesize($file);
+					if (!$noContent) // $filesize < 4000)
 						$codefBlanks = $counterBlanks = $dayBlanks = $monthBlanks = 0;
-					}	
 					if ($codefBlanks > 3)
 					{
 						$codefBlanks = 0;
@@ -256,7 +270,7 @@ function getPhillyPre2007($year, $countyNum, $courtType, $courtLevel)
 
 function downloadDocket($ch, $docketNumber)
 {
-		downloadDocketWithPrefix($ch, $docketNumber, null);
+	return downloadDocketWithPrefix($ch, $docketNumber, null);
 }
 
 // downloads a specified docket number from CPCMS and stores it in the filesystem
@@ -266,11 +280,11 @@ function downloadDocketWithPrefix($ch, $docketNumber, $prefix)
 {
 	print "\ndownloading docket: $docketNumber";
 	// check to see if this docket number is already in our database; if so, don't redownload as this takes a long time
-	if (duplicateDocket($docketNumber))
-	{
-		"\nDuplicate Case: $docketNumber";
-		return false;
-	}
+#	if (duplicateDocket($docketNumber))
+#	{
+#		"\nDuplicate Case: $docketNumber";
+#		return false;
+#	}
 		
 	print "\nDownloading: $docketNumber";
 	
@@ -290,6 +304,7 @@ function downloadDocketWithPrefix($ch, $docketNumber, $prefix)
 	
 	// a) checks the filesize; b) if the file size is < 5kb, increment a counter; if it is more than 5kb, reset the counter; c) if the counter is ever > 500, break the loop
 	$filesize = filesize($file);
+
 	if ($filesize < 4000)
 	{
 		// delete the file so that it doesn't pollute the file system
@@ -314,16 +329,16 @@ function readPDFToFile($ch, $file)
 }
 
 // checks the database to see if this docket number already exists; if so, returns false
-function duplicateDocket($docketNumber)
-{
-	$id = Docket::checkInDB($GLOBALS['db'], "`Case`", "docket", $docketNumber, "", "", "id");
+#function duplicateDocket($docketNumber)
+#{
+#	$id = Docket::checkInDB($GLOBALS['db'], "`Case`", "docket", $docketNumber, "", "", "id");
 		
 	// if ID = 0, that means that this case is not in the DB
-	if ($id==0)
-		return false;
-	else
-		return true;
-}
+#	if ($id==0)
+#		return false;
+#	else
+#		return true;
+#}
 
 
 ?>

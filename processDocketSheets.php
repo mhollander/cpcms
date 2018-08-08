@@ -1,8 +1,8 @@
 <?php
 
 require_once("config.php");
-require_once("Docket.php");
-require_once("ArrestSummary.php");
+//require_once("Docket.php");
+//require_once("ArrestSummary.php");
 require_once("getDocketsGranular.php");
 // foreach dir
 // open dir
@@ -75,7 +75,7 @@ function processContinuous()
 		foreach (range(3, count($files)) as $num)
 		{
 			$file = $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $files[$num-1];
-			if (filesize($file) > 1)
+			if (!is_dir($file) && filesize($file) > 1)
 			{
 				processDocket($file);
 				// and then delete the file so that we don't reprocess it
@@ -89,7 +89,7 @@ function processContinuous()
 		clearstatcache();
 		if (!$processedfile)
 		{
-			print ".";
+			print "x";
 			sleep(5);
 		}
 	}
@@ -97,20 +97,38 @@ function processContinuous()
 
 function processDocket($file)
 {
-	$command = $GLOBALS['toolsDir'] . $GLOBALS['pdftotext']	. " -layout \"" . $file . "\" \"" . $GLOBALS['tempFile'] . "\"";
+    $docket = basename($file,".pdf");
+    $year = substr($docket,-4);
+      
+    $command = $GLOBALS['pdftotext'] . " -layout \"" . $file . "\" \"" . $GLOBALS['contDocketDir'] . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $docket . "\"";
+    
+    # get the docket number, minus the file extension
+    
 	system($command, $ret);
-	if($GLOBALS['debug'])
-		print "\nThe pdftotext command: $command \n";
-
+    print "\n****** $docket \n";
+        
+        #print "\nThe pdftotext command: $command \n";
+/*
 	if ($ret == 0)
 	{
-		print "\n**************" . $file;
-		$thisDocket = file($GLOBALS['tempFile']);
+	    print "\n**************" . $file;
+	    $thisDocket = file_get_contents($GLOBALS['tempFile']);
+	    $sql = "INSERT INTO DocketDump (datadump, docketnum) VALUES('" . $GLOBALS['db']->real_escape_string($thisDocket) . "', '$docket')";
 
+	    if (!$GLOBALS['db']->query($sql))
+	      die('Could not insert the docket to the db' . $GLOBALS['db']->error);
+	    else 
+	      print "\nProcessed docket $docket";
+ 
+	}
+	    
+	      
+	    
+/*
 		$docket = new Docket();
 		$personID = null;
-		
-		if ($docket->isDocketSheet($thisDocket[1]))
+
+	    	if ($docket->isDocketSheet($thisDocket[1]))
 		{
 			// if this is a regular docket sheet, use the regular parsing function
 			$docket->readArrestRecord($thisDocket);
@@ -158,7 +176,8 @@ function processDocket($file)
 			curl_close($ch);
 
 		}
-	}
+ */
+	
 }
 
 ?>
