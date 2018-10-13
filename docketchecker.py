@@ -3,7 +3,7 @@ import os, os.path, re, sys
 dir = "dockets"
 counties = range(1,68)
 
-assert 1996 < int(sys.argv[1]) < 2008, "Year is out of range 1997-2007"
+assert 1996 < int(sys.argv[1]) < 2018, "Year is out of range 1997-2007"
 
 total = 0
 
